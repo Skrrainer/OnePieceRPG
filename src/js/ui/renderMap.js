@@ -5,6 +5,7 @@
 
 import { ISLANDS } from '../../config/islands.js';
 import { getState } from '../engine/playerState.js';
+import { generateLogPoseDestinations } from '../engine/navigation.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.2;
@@ -24,15 +25,7 @@ export function renderInlineMapMarkers() {
   const state = getState();
   const currentIslandId = state.currentIsland;
 
-  const destContainer = document.getElementById('log-pose-destinations');
-  let activeDestinations = [];
-  if (destContainer) {
-    const destBtns = Array.from(destContainer.querySelectorAll('.island-btn'));
-    activeDestinations = destBtns.map(btn => {
-      const name = btn.querySelector('.island-name')?.textContent;
-      return ISLANDS.find(i => i.name === name);
-    }).filter(Boolean);
-  }
+  const activeDestinations = generateLogPoseDestinations();
 
   // Remove existing markers
   inner.querySelectorAll('.map-marker').forEach(m => m.remove());
@@ -57,20 +50,6 @@ export function renderInlineMapMarkers() {
       </div>
     `;
     inner.appendChild(div);
-  });
-
-  // Bind marker click handlers
-  const titleEl = document.getElementById('map-info-title');
-  const descEl = document.getElementById('map-info-desc');
-  inner.querySelectorAll('.map-marker').forEach(marker => {
-    marker.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const island = ISLANDS.find(i => i.id === marker.dataset.id);
-      if (island && titleEl && descEl) {
-        titleEl.textContent = island.name;
-        descEl.innerHTML = `<strong>Type:</strong> ${island.type}<br/>${island.description}`;
-      }
-    });
   });
 }
 
@@ -202,24 +181,56 @@ export function bindMapEvents() {
       isDragging = false;
   });
 
-  // Clicking on markers
-  const markers = inner.querySelectorAll('.map-marker');
-  const titleEl = document.getElementById('map-info-title');
-  const descEl = document.getElementById('map-info-desc');
+  // Event delegated click handler for markers
+  inner.addEventListener('click', (e) => {
+    const marker = e.target.closest('.map-marker');
+    if (!marker) return;
+    
+    e.stopPropagation(); // prevent drag trigger
+    const id = marker.dataset.id;
+    const island = ISLANDS.find(i => i.id === id);
+    if (!island) return;
 
-  markers.forEach(marker => {
-    marker.addEventListener('click', (e) => {
-      e.stopPropagation(); // prevent drag trigger
-      const id = marker.dataset.id;
-      const island = ISLANDS.find(i => i.id === id);
-      if (island) {
-        titleEl.textContent = island.name;
-        descEl.innerHTML = `
-          <strong>Type:</strong> ${island.type}<br/>
-          ${island.description}
+    const titleEl = document.getElementById('map-info-title');
+    const descEl = document.getElementById('map-info-desc');
+    if (titleEl && descEl) {
+      titleEl.textContent = island.name;
+      
+      const destinations = generateLogPoseDestinations();
+      const isDest = destinations.some(d => d.id === island.id);
+      
+      let actionHtml = '';
+      if (isDest) {
+        actionHtml = `
+          <div style="margin-top: 10px;">
+            <button class="btn btn--primary btn--sm" id="map-sail-action-btn" data-destination="${island.id}">🌊 Sail to ${island.name}</button>
+          </div>
         `;
       }
-    });
+
+      descEl.innerHTML = `
+        <strong>Type:</strong> ${island.type}<br/>
+        ${island.description}
+        ${actionHtml}
+      `;
+
+      if (isDest) {
+        const mapSailBtn = document.getElementById('map-sail-action-btn');
+        if (mapSailBtn) {
+          mapSailBtn.addEventListener('click', () => {
+            const mainSailBtn = document.getElementById('set-sail-btn');
+            if (mainSailBtn) {
+               mainSailBtn.disabled = false;
+               mainSailBtn.textContent = `🌊 Set Sail to ${island.name}`;
+               mainSailBtn.dataset.destination = island.id;
+
+               // Trigger the sail action
+               mainSailBtn.click(); 
+            }
+          });
+        }
+      }
+    }
   });
   
   // Auto-center on load

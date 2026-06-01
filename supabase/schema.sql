@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS public.players (
   accuracy       INTEGER     NOT NULL DEFAULT 5,
   devil_fruit    TEXT        DEFAULT NULL,
   has_fruit      BOOLEAN     NOT NULL DEFAULT FALSE,
+  inventory      JSONB       NOT NULL DEFAULT '[]'::jsonb,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

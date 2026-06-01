@@ -591,6 +591,35 @@ MAPPED_COORDS.forEach(mapped => {
   }
 });
 
+const NEW_DIRECTED_ISLANDS = [
+  { name: "West Blue GL1", x: 44.7, y: 66.8, type: "SAFE", icon: "🌊", description: "Entrance to the Grand Line from the West." },
+  { name: "West Blue GL2", x: 47, y: 59.1, type: "TRADE", icon: "💰", description: "An outpost on the way to the center." },
+  { name: "Center", x: 49.2, y: 50.9, type: "MYSTERY", icon: "❓", description: "The convergence point of the four seas." },
+  { name: "South Blue GL2", x: 51.5, y: 57.9, type: "TRADE", icon: "💰", description: "An outpost on the way to the center." },
+  { name: "South Blue GL1", x: 54.4, y: 64.1, type: "SAFE", icon: "🌊", description: "Entrance to the Grand Line from the South." },
+  { name: "East Blue GL1", x: 52.7, y: 37.7, type: "SAFE", icon: "🌊", description: "Entrance to the Grand Line from the East." },
+  { name: "East Blue GL2", x: 51.2, y: 43.6, type: "TRADE", icon: "💰", description: "An outpost on the way to the center." },
+  { name: "North Blue GL1", x: 44.2, y: 31.4, type: "SAFE", icon: "🌊", description: "Entrance to the Grand Line from the North." },
+  { name: "North Blue GL2", x: 46.5, y: 39.9, type: "TRADE", icon: "💰", description: "An outpost on the way to the center." },
+  { name: "GL2", x: 52.3, y: 50.8, type: "DANGER", icon: "⚡", description: "A perilous checkpoint." },
+  { name: "GL1", x: 55, y: 50.7, type: "MYSTERY", icon: "✨", description: "The end of the path." }
+].map(loc => ({
+  name: loc.name,
+  x: loc.x,
+  y: loc.y,
+  id: loc.name.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+  type: loc.type,
+  description: loc.description,
+  modifiers: {},
+  icon: loc.icon
+}));
+
+NEW_DIRECTED_ISLANDS.forEach(mapped => {
+  if (!ISLANDS.find(i => i.id === mapped.id || i.name === mapped.name)) {
+    ISLANDS.push(mapped);
+  }
+});
+
 // ── Sea Zone Polygons ─────────────────────────────────────────────────────
 // Each sea is defined by 4 corner points (x, y as % of map dimensions).
 // Point-in-polygon uses ray casting (works for any simple polygon).

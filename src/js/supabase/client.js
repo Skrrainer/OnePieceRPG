@@ -24,6 +24,7 @@
 //      accuracy      int   DEFAULT 5
 //      devil_fruit   text  DEFAULT NULL
 //      has_fruit     bool  DEFAULT false
+//      inventory     jsonb DEFAULT '[]'
 //      created_at    timestamptz DEFAULT now()
 //
 //    Table: events

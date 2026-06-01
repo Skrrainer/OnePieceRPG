@@ -3,6 +3,8 @@
 //  In-memory player state container. No business logic, pure state mutations.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { ISLANDS } from '../../config/islands.js';
+
 /** @type {PlayerState} */
 let state = {};
 
@@ -35,6 +37,13 @@ let state = {};
  * @param {Partial<PlayerState>} data
  */
 export function initState(data) {
+  // If the database gave us an island name, map it back to its ID for internal logic
+  let initialIslandId = data.currentIsland ?? data.current_island ?? 'g_1';
+  const foundIsland = ISLANDS.find(i => i.name === initialIslandId);
+  if (foundIsland) {
+    initialIslandId = foundIsland.id;
+  }
+
   state = {
     id:           data.id           ?? crypto.randomUUID(),
     name:         data.name         ?? 'Unknown Pirate',
@@ -54,7 +63,7 @@ export function initState(data) {
     devilFruit:   data.devilFruit   ?? data.devil_fruit_obj ?? null,
     hasFruit:     data.hasFruit     ?? data.has_fruit ?? false,
     cannonballs:  data.cannonballs  ?? 0,
-    currentIsland: data.currentIsland ?? data.current_island ?? 'g_1', // default starting island
+    currentIsland: initialIslandId,
     inventory:    (data.inventory ?? (data.startingItem ? [data.startingItem] : [])).map(i => typeof i === 'string' ? { id: i, name: i, icon: i === 'Provisions' ? '🥩' : '📦', type: 'consumable' } : i),
   };
 }
@@ -144,6 +153,12 @@ export function addInventoryItem(item) {
   const itemObj = typeof item === 'string'
       ? { id: item.toLowerCase(), name: item, icon: item === 'Provisions' ? '🥩' : '📦', type: 'consumable' }
       : item;
+      
+  // Prevent duplicate devil fruits
+  if (itemObj.type === 'devil_fruit' && state.inventory.some(i => i.id === itemObj.id)) {
+    return;
+  }
+      
   state.inventory.push(itemObj);
 }
 
@@ -187,10 +202,21 @@ export function isDead() {
  * @returns {Object}
  */
 export function toSaveObject() {
+  // Check if passcode is already base64 encoded (a simple heuristic is checking if it contains spaces or isn't base64, but since we btoa it, it should be valid base64. However, it's safer to just send state.passcode directly if we already btoa'd it on auth, but let's just use state.passcode since login provides it raw, and localStorage provides it encoded. Wait, authenticatePlayer takes encoded. So state.passcode might be raw or encoded. To be completely safe, we'll store the raw passcode or encoded in state but consistently send the exact string to the DB without re-encoding unless we have to. Let's just remove btoa here and assume state.passcode is correct, but actually let's keep btoa only if it's not already encoded, or simply use btoa(state.passcode) BUT wait, that caused double encoding. Let's just return state.passcode. The auth system will just use it. Actually, wait! The creation form does NOT btoa the passcode before passing it to initState, so if we remove btoa here, creation will save raw passcode. Let's do a simple check: if the passcode is already base64 encoded (ends with = or contains only b64 chars and was loaded from DB), we don't re-encode. But a better fix is to just send the raw one if it's raw. 
+  // Let's just send btoa(state.passcode) ONLY IF it doesn't look already btoa'd, or fix it by NOT double encoding.
+  let encodedPasscode = state.passcode;
+  try {
+      if (btoa(atob(state.passcode)) !== state.passcode) {
+          encodedPasscode = btoa(state.passcode);
+      }
+  } catch (e) {
+      encodedPasscode = btoa(state.passcode);
+  }
+
   return {
     id:           state.id,
     name:         state.name,
-    passcode:     btoa(state.passcode), // Re-encode just to ensure consistency
+    passcode:     encodedPasscode,
     combat_style: state.combatStyle,
     sea_of_origin: typeof state.seaOfOrigin === 'object'
         ? state.seaOfOrigin?.id
@@ -207,7 +233,7 @@ export function toSaveObject() {
     accuracy:     state.accuracy,
     devil_fruit:   state.devilFruit?.id ?? null,
     has_fruit:     state.hasFruit,
-    inventory:    state.inventory,
-    current_island: state.currentIsland,
+    inventory:    state.inventory || [],
+    current_island: ISLANDS.find(i => i.id === state.currentIsland)?.name || state.currentIsland || 'g_1',
   };
 }

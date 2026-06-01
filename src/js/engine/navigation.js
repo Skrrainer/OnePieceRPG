@@ -6,10 +6,24 @@
 import { ISLANDS } from '../../config/islands.js';
 import { getState } from './playerState.js';
 
+const DIRECTED_PATHS = {
+  'west_blue_gl1': ['west_blue_gl2'],
+  'west_blue_gl2': ['center'],
+  'south_blue_gl1': ['south_blue_gl2'],
+  'south_blue_gl2': ['center'],
+  'east_blue_gl1': ['east_blue_gl2'],
+  'east_blue_gl2': ['center'],
+  'north_blue_gl1': ['north_blue_gl2'],
+  'north_blue_gl2': ['center'],
+  'center': ['gl2'],
+  'gl2': ['gl1']
+};
+
 /**
- * Generates a set of the 3 closest islands for the player to choose from.
- * Uses Pythagorean distance based on x/y coordinates.
- * @returns {Array} Array of 3 island objects
+ * Generates a set of the closest islands for the player to choose from.
+ * Enforces directed paths if the current island is part of the predefined sequence.
+ * Uses Pythagorean distance based on x/y coordinates as a fallback.
+ * @returns {Array} Array of island objects
  */
 export function generateLogPoseDestinations() {
   const state = getState();
@@ -18,6 +32,12 @@ export function generateLogPoseDestinations() {
   if (!current) {
     // Fallback if current island is invalid
     return ISLANDS.slice(0, 3);
+  }
+
+  // Check if we are on a directed path
+  if (DIRECTED_PATHS[current.id]) {
+     const destIds = DIRECTED_PATHS[current.id];
+     return destIds.map(id => ISLANDS.find(i => i.id === id)).filter(Boolean);
   }
 
   // Calculate distance to all other islands

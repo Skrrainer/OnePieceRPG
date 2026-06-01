@@ -3,6 +3,8 @@
 //  Pure, stateless RNG utility functions. No side effects.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { DROP_RATES } from '../config/gameData.js';
+
 /**
  * Returns a random integer between min and max, inclusive.
  * @param {number} min
@@ -51,7 +53,12 @@ export function weightedPick(items, weights) {
  */
 export function shouldDropDevilFruit(hasExistingFruit, chanceMultiplier = 1.0) {
   if (hasExistingFruit) return false;
-  return Math.random() < (0.02 * chanceMultiplier);
+  
+  // Depending on how it's configured, DROP_RATES.DEVIL_FRUIT_CHANCE might be an integer (e.g. 1 for 1%, or 1 for 100%) or a float.
+  // Since the original hardcoded value was 0.02 and the comment said 2%, 
+  // if DEVIL_FRUIT_CHANCE is set to 1 by the user, it means 100% or 1.0. 
+  // However, if they meant 1%, they would use 0.01. Let's just use the value directly since Math.random() is between 0 and 1.
+  return Math.random() < (DROP_RATES.DEVIL_FRUIT_CHANCE * chanceMultiplier);
 }
 
 /**
