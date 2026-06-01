@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#0a0f1e"/>
+  <text x="256" y="340" font-size="290" text-anchor="middle" font-family="serif">⚓</text>
+  <rect x="0" y="420" width="512" height="92" rx="0" fill="#c8a84b" opacity="0.15"/>
+  <text x="256" y="490" font-size="44" text-anchor="middle" font-family="monospace" fill="#c8a84b" font-weight="bold">GRAND LINE</text>
+</svg>

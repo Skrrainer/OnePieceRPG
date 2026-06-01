@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#c8a84b" />
+  <meta name="description" content="Grand Line Dispatch — A text-based pirate RPG." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="GLD" />
+
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Google Fonts: IM Fell English (body) + Share Tech Mono (UI) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+          href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Share+Tech+Mono&display=swap"
+          rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="/src/css/variables.css" />
+  <link rel="stylesheet" href="/src/css/layout.css" />
+  <link rel="stylesheet" href="/src/css/ui-components.css" />
+  <link rel="stylesheet" href="/src/css/map.css" />
+
+  <title>Grand Line Dispatch</title>
+</head>
+<body>
+<!-- ═══════════════════════════════════════════════════════════════════
+     GLOBAL APP WRAPPER
+═══════════════════════════════════════════════════════════════════ -->
+<div class="app-wrapper">
+
+  <!-- ── HEADER ──────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <span class="app-header__logo">⚓ Grand Line Dispatch</span>
+    <nav class="app-header__nav" id="main-nav" aria-label="Main Navigation">
+      <button class="btn btn--ghost btn--sm" id="logout-btn" hidden>Sign Out</button>
+    </nav>
+  </header>
+
+  <!-- ── MAIN CONTENT AREA ───────────────────────────────────────── -->
+  <main class="app-main">
+
+    <!-- ── SCREEN: AUTH (LOGIN & REGISTER) ────────────────────────── -->
+    <section id="screen-auth" class="screen active" aria-label="Authentication">
+      <div class="auth-card card">
+        <h1 class="auth-card__title">The Logbook</h1>
+        <p class="auth-card__subtitle">Identify yourself to the sea.</p>
+
+        <div class="auth-tabs">
+          <button class="btn btn--ghost active" id="tab-login">Login</button>
+          <button class="btn btn--ghost" id="tab-register">New Voyage</button>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <form id="login-form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="login-name">Pirate Name</label>
+            <input class="form-input" type="text" id="login-name" required autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="login-pass">Passcode</label>
+            <input class="form-input" type="password" id="login-pass" required autocomplete="current-password" />
+          </div>
+          <div id="login-error" class="form-error" aria-live="polite" hidden></div>
+          <button type="submit" class="btn btn--primary btn--full" id="login-btn" style="margin-top: var(--space-md);">Resume Voyage</button>
+        </form>
+
+        <!-- REGISTER FORM -->
+        <form id="register-form" novalidate hidden>
+          <div class="form-group">
+            <label class="form-label" for="pirate-name">Pirate Name</label>
+            <input class="form-input" type="text" id="pirate-name" maxlength="32" required autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="pirate-pass">Passcode (Secret)</label>
+            <input class="form-input" type="password" id="pirate-pass" required autocomplete="new-password" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Combat Style</label>
+            <div class="style-grid" role="radiogroup" aria-label="Combat Style">
+              <label class="style-card" data-style="BRAWLER">
+                <input type="radio" name="combatStyle" value="BRAWLER" required />
+                <span class="style-card__icon">👊</span>
+                <span class="style-card__name">Brawler</span>
+              </label>
+              <label class="style-card" data-style="SWORDSMAN">
+                <input type="radio" name="combatStyle" value="SWORDSMAN" />
+                <span class="style-card__icon">⚔️</span>
+                <span class="style-card__name">Swordsman</span>
+              </label>
+              <label class="style-card" data-style="SNIPER">
+                <input type="radio" name="combatStyle" value="SNIPER" />
+                <span class="style-card__icon">🎯</span>
+                <span class="style-card__name">Sniper</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="sea-fate-box">
+              <span class="sea-fate-box__label">🌊 Sea of Origin</span>
+              <span class="sea-fate-box__value" id="sea-fate-display">
+                    — Assigned by fate upon embarkation —
+                  </span>
+            </div>
+          </div>
+
+          <div id="register-error" class="form-error" aria-live="polite" hidden></div>
+          <button type="submit" class="btn btn--primary btn--full" id="register-btn" style="margin-top: var(--space-md);">
+            ⚓ Embark
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ── SCREEN: GAME ─────────────────────────────────────────── -->
+    <section id="screen-game" class="screen" aria-label="Game World" hidden>
+
+      <!-- ── TOP HUD: always-visible critical stats ──────────────── -->
+      <div class="game-hud" id="game-hud">
+        <div class="hud-identity">
+          <span class="hud-name" id="profile-name">—</span>
+          <span class="profile-panel__badge" id="profile-style-badge">—</span>
+          <span class="hud-sea" id="profile-sea">—</span>
+        </div>
+        <div class="hud-vitals">
+          <div class="hud-bar-row">
+            <span class="hud-bar-label">❤️</span>
+            <div class="stat-bar" role="progressbar" aria-label="HP">
+              <div class="stat-bar__fill stat-bar__fill--hp" id="stat-bar-hp"></div>
+            </div>
+            <span class="hud-bar-value" id="profile-hp">—</span>
+          </div>
+          <div class="hud-bar-row">
+            <span class="hud-bar-label">🚢</span>
+            <div class="stat-bar" role="progressbar" aria-label="Hull">
+              <div class="stat-bar__fill stat-bar__fill--ship" id="stat-bar-ship"></div>
+            </div>
+            <span class="hud-bar-value" id="profile-ship-hp">—</span>
+          </div>
+        </div>
+        <div class="hud-counters">
+          <span class="currency-badge" title="Bounty">💀 <span id="profile-bounty">0</span></span>
+          <span class="currency-badge" title="Gold">💰 <span id="profile-gold">0</span></span>
+          <span class="currency-badge" title="Day">📅 Day <span id="profile-day">1</span></span>
+          <button id="btn-inventory" class="btn btn--ghost btn--sm" style="margin-left: 8px; padding: 4px 8px; font-size: 1.1rem;">🎒</button>
+        </div>
+      </div>
+
+      <!-- ── MAP + TABBED SIDEBAR ────────────────────────────────── -->
+      <div class="game-layout">
+
+        <!-- Map (primary) -->
+        <div class="map-section">
+          <div class="map-section__header">
+            <h2 class="map-section__title" id="hub-title">—</h2>
+            <span class="map-section__day" id="hub-day">Day 1</span>
+          </div>
+          <div class="map-wrapper" id="game-map-wrapper">
+            <div class="map-inner" id="game-map-inner" style="transform: translate(0px, 0px) scale(1);">
+              <img src="/lm93f2q9fqaf1.jpeg" class="map-image" id="game-map-image" alt="Grand Line Map" draggable="false" />
+            </div>
+            <div class="map-controls">
+              <button class="map-btn" id="map-zoom-out">−</button>
+              <button class="map-btn" id="map-zoom-in">+</button>
+              <button class="map-btn" id="map-recenter" style="font-size:0.9rem;width:auto;padding:0 8px;">Center</button>
+            </div>
+          </div>
+          <div class="map-info-panel">
+            <h4 class="map-info-title" id="map-info-title">—</h4>
+            <p class="map-info-desc" id="map-info-desc">Click on any island to view its details.</p>
+          </div>
+        </div>
+
+        <!-- Tabbed Sidebar -->
+        <aside class="game-sidebar" id="game-sidebar">
+
+          <!-- Tab strip (top on desktop, bottom on mobile via column-reverse) -->
+          <nav class="sidebar-tabs" role="tablist" aria-label="Game Panels">
+            <button class="sidebar-tab active" data-tab="captain"  role="tab" aria-selected="true"  aria-controls="panel-captain">⚔️<span class="tab-label"> Captain</span></button>
+            <button class="sidebar-tab"         data-tab="services" role="tab" aria-selected="false" aria-controls="panel-services">🏪<span class="tab-label"> Services</span></button>
+            <button class="sidebar-tab"         data-tab="nav"      role="tab" aria-selected="false" aria-controls="panel-nav">🧭<span class="tab-label"> Navigate</span></button>
+            <button class="sidebar-tab"         data-tab="log"      role="tab" aria-selected="false" aria-controls="panel-log">📜<span class="tab-label"> Log</span></button>
+          </nav>
+
+          <!-- Panel content -->
+          <div class="sidebar-panels">
+
+            <!-- Tab 1: Captain & Crew -->
+            <div class="sidebar-panel active" id="panel-captain" role="tabpanel">
+              <ul class="combat-stats__list" id="combat-stats-list">
+                <li>⚔️ Attack: <span id="stat-attack">—</span></li>
+                <li>🛡️ Defense: <span id="stat-defense">—</span></li>
+                <li>🎯 Accuracy: <span id="stat-accuracy">—</span></li>
+                <li>💰 Bounty: <span id="profile-bounty">0</span></li>
+              </ul>
+
+              <div class="crew-section">
+                <div class="crew-section__header">
+                  <span class="crew-section__title">🪝 Crew</span>
+                  <span class="crew-section__count" id="crew-count">0</span>
+                </div>
+                <ul class="crew-list" id="crew-list">
+                  <li class="crew-list__empty">No crew recruited yet.</li>
+                </ul>
+              </div>
+
+              <div id="devil-fruit-section" hidden>
+                <div class="devil-fruit-badge" id="devil-fruit-badge">
+                  <div class="df-badge-header">
+                    <span class="devil-fruit-badge__icon">🍎</span>
+                    <div class="df-badge-title">
+                      <span class="devil-fruit-badge__name" id="devil-fruit-name">—</span>
+                      <span class="devil-fruit-badge__type" id="devil-fruit-type">—</span>
+                    </div>
+                  </div>
+                  <p class="devil-fruit-badge__ability" id="devil-fruit-ability">—</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2: Island Services -->
+            <div class="sidebar-panel" id="panel-services" role="tabpanel">
+              <div class="hub-card card" id="hub-tavern">
+                <div class="hub-card__header">
+                  <span class="hub-card__icon">🍺</span>
+                  <h3 class="hub-card__title">Tavern</h3>
+                </div>
+                <p class="hub-card__desc" id="tavern-desc">Rest and listen to rumors from the seas.</p>
+                <div class="hub-card__actions">
+                  <button class="btn btn--primary" id="tavern-rest-btn">😴 Rest (+20 HP) — Free</button>
+                  <button class="btn btn--ghost" id="tavern-recruit-btn">🪝 Recruit Crew — 100 Gold</button>
+                </div>
+                <div class="hub-card__result" id="tavern-result" aria-live="polite"></div>
+              </div>
+
+              <div class="hub-card card" id="hub-market">
+                <div class="hub-card__header">
+                  <span class="hub-card__icon">🏪</span>
+                  <h3 class="hub-card__title">Market</h3>
+                </div>
+                <p class="hub-card__desc">Trade supplies for the voyage ahead.</p>
+                <div class="hub-card__actions">
+                  <button class="btn btn--primary" id="market-provisions-btn">🥩 Buy Provisions — 50 Gold</button>
+                  <button class="btn btn--ghost" id="market-cannonball-btn">💣 Buy Cannonballs — 30 Gold</button>
+                </div>
+                <div class="hub-card__result" id="market-result" aria-live="polite"></div>
+              </div>
+
+              <div class="hub-card card" id="hub-shipyard">
+                <div class="hub-card__header">
+                  <span class="hub-card__icon">⚙️</span>
+                  <h3 class="hub-card__title">Shipyard</h3>
+                </div>
+                <p class="hub-card__desc">Patch up the hull before the next storm.</p>
+                <div class="hub-card__actions">
+                  <button class="btn btn--primary" id="shipyard-repair-btn">🔧 Repair Hull</button>
+                  <button class="btn btn--ghost" id="shipyard-upgrade-btn">⬆️ Upgrade Cannons — 200 Gold</button>
+                </div>
+                <p class="hub-card__stat">Hull: <span id="ship-hp-display">100</span>/<span id="ship-hp-max-display">100</span></p>
+                <div class="hub-card__result" id="shipyard-result" aria-live="polite"></div>
+              </div>
+            </div>
+
+            <!-- Tab 3: Navigation -->
+            <div class="sidebar-panel" id="panel-nav" role="tabpanel">
+              <div class="log-pose-section">
+                <h3 class="log-pose-title">🧭 Log Pose</h3>
+                <p class="log-pose-desc">The needles have set. Choose your next heading.</p>
+                <div class="log-pose-grid" id="log-pose-destinations"></div>
+                <button class="btn btn--primary btn--full" id="set-sail-btn" style="margin-top:var(--space-md);" disabled>
+                  🧭 Select a Destination
+                </button>
+              </div>
+            </div>
+
+            <!-- Tab 4: Captain's Log -->
+            <div class="sidebar-panel" id="panel-log" role="tabpanel">
+              <div class="event-panel__header">
+                <h2 class="event-panel__title">Voyage Log</h2>
+                <button class="btn btn--ghost btn--sm" id="clear-log-btn">🗑 Clear</button>
+              </div>
+              <div class="event-log" id="event-log" aria-live="polite" aria-label="Voyage Event Log">
+                <div class="event-log__empty">
+                  <p>The sea is calm. Hit <strong>Set Sail</strong> to begin your adventure.</p>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /.sidebar-panels -->
+        </aside><!-- /.game-sidebar -->
+
+      </div><!-- /.game-layout -->
+    </section>
+
+  </main><!-- /.app-main -->
+</div><!-- /.app-wrapper -->
+
+<!-- ── TOAST NOTIFICATIONS ──────────────────────────────────────── -->
+<div id="toast-container" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+<!-- ── MODAL OVERLAY ────────────────────────────────────────────── -->
+<div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" hidden>
+  <div class="modal-box card" id="modal-box">
+    <button class="modal-close btn btn--ghost btn--sm" id="modal-close-btn" aria-label="Close modal">✕</button>
+    <h3 class="modal-box__title" id="modal-title">—</h3>
+    <div class="modal-box__body" id="modal-body"></div>
+    <div class="modal-box__footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- ── INVENTORY OVERLAY ────────────────────────────────────────────── -->
+<div id="inventory-overlay" class="modal-overlay" role="dialog" aria-modal="true" hidden>
+  <div class="modal-box card" style="max-width: 650px; width: 95%;">
+    <button class="modal-close btn btn--ghost btn--sm" id="inventory-close-btn" aria-label="Close modal">✕</button>
+    <h3 class="modal-box__title" style="margin-bottom: 1rem;">🎒 Captain's Bag</h3>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+      <div id="inventory-grid" style="flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 10px; align-content: start; min-width: 250px;">
+        <!-- Slots will be injected here by renderInventory.js -->
+      </div>
+      <div id="inventory-details" class="card" style="flex: 1; min-width: 250px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color);">
+        <p class="text-muted" style="text-align: center; margin-top: 2rem;">Select an item to view details.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/js/main.js"></script>
+</body>
+</html>

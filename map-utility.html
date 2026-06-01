@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Map Coordinate Utility</title>
+  <style>
+    :root {
+      --bg-main: #111827;
+      --bg-panel: #1f2937;
+      --bg-card: #374151;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --accent: #ef4444;
+      --border: #4b5563;
+      --gold: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      display: flex;
+      height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      overflow: hidden;
+    }
+
+    /* ── MAP AREA ── */
+    .map-section {
+      flex: 1;
+      overflow: auto;
+      position: relative;
+    }
+
+    /* Inner container ensures centering when zoomed out, but allows scroll when zoomed in */
+    .map-container {
+      position: relative;
+      display: inline-block;
+      min-width: 100%;
+      min-height: 100%;
+    }
+
+    .image-wrapper {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform-origin: top left; /* Changed from center to allow easy scrolling logic if needed, but centering is handled differently now */
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+      border: 2px solid var(--border);
+    }
+
+    #map-image {
+      display: block;
+      width: 100%;
+      height: auto;
+      cursor: crosshair;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .marker {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background-color: var(--accent);
+      border: 2px solid #fff;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+      z-index: 10;
+    }
+
+    .marker-label {
+      position: absolute;
+      top: -22px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      white-space: nowrap;
+      pointer-events: none;
+      border: 1px solid var(--border);
+    }
+
+    /* ── ZOOM CONTROLS ── */
+    .zoom-controls {
+      position: fixed;
+      bottom: 20px;
+      right: 420px; /* Offset by panel width */
+      display: flex;
+      gap: 5px;
+      background-color: var(--bg-panel);
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      z-index: 100;
+    }
+
+    .zoom-btn {
+      background-color: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      width: 36px;
+      height: 36px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .zoom-btn:hover {
+      background-color: var(--border);
+    }
+
+    .zoom-level-display {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 60px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      color: var(--gold);
+    }
+
+    .zoom-hint {
+      position: absolute;
+      top: -25px;
+      right: 0;
+      white-space: nowrap;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* ── SIDE PANEL ── */
+    .panel-section {
+      width: 400px;
+      background-color: var(--bg-panel);
+      border-left: 2px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      z-index: 50;
+    }
+
+    .panel-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-header h2 {
+      font-size: 1.25rem;
+      color: var(--gold);
+      margin-bottom: 5px;
+    }
+
+    .panel-header p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .log-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .log-item {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .log-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .coords-badge {
+      font-family: monospace;
+      font-size: 0.9rem;
+      background: #000;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: var(--gold);
+    }
+
+    .delete-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .delete-btn:hover {
+      color: var(--accent);
+    }
+
+    .name-input {
+      width: 100%;
+      background: var(--bg-main);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .name-input:focus {
+      outline: none;
+      border-color: var(--gold);
+    }
+
+    /* ── EXPORT AREA ── */
+    .export-section {
+      padding: 20px;
+      border-top: 1px solid var(--border);
+      background-color: #111827;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .export-btn {
+      background-color: var(--gold);
+      color: #000;
+      border: none;
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .export-btn:hover {
+      opacity: 0.9;
+    }
+
+    #json-output {
+      width: 100%;
+      height: 150px;
+      background-color: #000;
+      color: #10b981;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      resize: none;
+      white-space: pre;
+      overflow-wrap: normal;
+      overflow-x: auto;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-main); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+  </style>
+</head>
+<body>
+
+  <!-- MAP AREA -->
+  <main class="map-section" id="map-section">
+    <div class="map-container" id="map-container">
+      <div class="image-wrapper" id="image-wrapper">
+        <!-- UPDATE SRC TO YOUR LOCAL IMAGE IF NEEDED -->
+        <img src="lm93f2q9fqaf1.jpeg" id="map-image" alt="World Map" />
+      </div>
+    </div>
+
+    <!-- ZOOM CONTROLS -->
+    <div class="zoom-controls">
+      <div class="zoom-hint">Ctrl + Scroll to zoom</div>
+      <button class="zoom-btn" id="zoom-out" title="Zoom Out">−</button>
+      <div class="zoom-level-display" id="zoom-level">100%</div>
+      <button class="zoom-btn" id="zoom-in" title="Zoom In">+</button>
+      <button class="zoom-btn" id="zoom-reset" title="Reset Zoom" style="font-size: 0.9rem; width: auto; padding: 0 10px;">Reset</button>
+    </div>
+  </main>
+
+  <!-- SIDE PANEL -->
+  <aside class="panel-section">
+    <div class="panel-header">
+      <h2>Islands Mapper</h2>
+      <p>Click on the map to log coordinates.</p>
+    </div>
+
+    <div class="log-container" id="log-list">
+      <!-- JS dynamically populates log items here -->
+    </div>
+
+    <div class="export-section">
+      <button class="export-btn" id="copy-btn">📋 Copy JSON to Clipboard</button>
+      <textarea id="json-output" readonly placeholder="JSON will appear here..."></textarea>
+    </div>
+  </aside>
+
+  <!-- JAVASCRIPT -->
+  <script>
+    const mapImage = document.getElementById('map-image');
+    const imageWrapper = document.getElementById('image-wrapper');
+    const mapSection = document.getElementById('map-section');
+    const mapContainer = document.getElementById('map-container');
+    const logList = document.getElementById('log-list');
+    const jsonOutput = document.getElementById('json-output');
+    const copyBtn = document.getElementById('copy-btn');
+    
+    // Zoom Elements
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    const zoomResetBtn = document.getElementById('zoom-reset');
+    const zoomLevelDisplay = document.getElementById('zoom-level');
+
+    let locations = [];
+    let idCounter = 1;
+
+    // ── ZOOM LOGIC ──
+    let currentZoom = 1.0;
+    const ZOOM_STEP = 0.2;
+    const MIN_ZOOM = 0.2;
+    const MAX_ZOOM = 5.0;
+
+    // To properly handle zooming and scrolling, we adjust the explicit width/height
+    // instead of CSS transform, which messes with the browser's scroll height calculation.
+    function updateZoom(newZoom) {
+      currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+      
+      // We set explicit pixel dimensions based on the natural image size multiplied by zoom
+      // so the container knows exactly how big the content is and allows scrolling.
+      if (mapImage.naturalWidth) {
+         const newWidth = mapImage.naturalWidth * currentZoom;
+         const newHeight = mapImage.naturalHeight * currentZoom;
+         imageWrapper.style.width = newWidth + 'px';
+         imageWrapper.style.height = newHeight + 'px';
+         
+         // Center the wrapper if it's smaller than the container
+         const containerWidth = mapSection.clientWidth;
+         const containerHeight = mapSection.clientHeight;
+         
+         if (newWidth < containerWidth) {
+             imageWrapper.style.left = '50%';
+             imageWrapper.style.transform = 'translateX(-50%)';
+         } else {
+             imageWrapper.style.left = '0';
+             imageWrapper.style.transform = 'none';
+         }
+         
+         if (newHeight < containerHeight) {
+             imageWrapper.style.top = '50%';
+             imageWrapper.style.marginTop = `-${newHeight/2}px`;
+         } else {
+             imageWrapper.style.top = '0';
+             imageWrapper.style.marginTop = '0';
+         }
+      }
+
+      zoomLevelDisplay.textContent = `${Math.round(currentZoom * 100)}%`;
+      
+      // Update existing markers to counter scale (not needed if we resize instead of scale, 
+      // but good to keep the visual size constant relative to screen)
+      // Since we are changing physical dimensions, the % left/top on markers stays perfect!
+    }
+
+    // Initialize zoom once image loads
+    mapImage.onload = () => updateZoom(1.0);
+    // Call immediately in case it's already cached
+    if(mapImage.complete) updateZoom(1.0);
+
+    zoomInBtn.addEventListener('click', () => updateZoom(currentZoom + ZOOM_STEP));
+    zoomOutBtn.addEventListener('click', () => updateZoom(currentZoom - ZOOM_STEP));
+    zoomResetBtn.addEventListener('click', () => updateZoom(1.0));
+
+    // Ctrl + Mouse Wheel for Zooming
+    mapSection.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
+        updateZoom(currentZoom + delta);
+      }
+    }, { passive: false });
+
+    // ── MAP CLICK LOGIC ──
+    mapImage.addEventListener('click', (e) => {
+      // Get the bounding rectangle of the image to calculate relative click position
+      const rect = mapImage.getBoundingClientRect();
+      
+      // Calculate exact X and Y as percentages
+      const rawX = ((e.clientX - rect.left) / rect.width) * 100;
+      const rawY = ((e.clientY - rect.top) / rect.height) * 100;
+
+      // Round to 1 decimal place
+      const x = parseFloat(rawX.toFixed(1));
+      const y = parseFloat(rawY.toFixed(1));
+
+      // Create new location object
+      const newLoc = {
+        id: idCounter++,
+        name: '',
+        x: x,
+        y: y
+      };
+
+      locations.push(newLoc);
+      
+      renderMarker(newLoc);
+      renderLog();
+      updateJSON();
+    });
+
+    // Draw the red dot on the map
+    function renderMarker(loc) {
+      const dot = document.createElement('div');
+      dot.className = 'marker';
+      dot.id = 'marker-' + loc.id;
+      dot.style.left = loc.x + '%';
+      dot.style.top = loc.y + '%';
+
+      const label = document.createElement('div');
+      label.className = 'marker-label';
+      label.id = 'marker-label-' + loc.id;
+      label.textContent = loc.name || `Point ${loc.id}`;
+      
+      dot.appendChild(label);
+      imageWrapper.appendChild(dot);
+    }
+
+    // Refresh the side panel list
+    function renderLog() {
+      logList.innerHTML = '';
+
+      // Render in reverse order so the newest click is at the top
+      [...locations].reverse().forEach(loc => {
+        const item = document.createElement('div');
+        item.className = 'log-item';
+
+        // Header containing Coords + Delete button
+        const header = document.createElement('div');
+        header.className = 'log-item-header';
+
+        const badge = document.createElement('span');
+        badge.className = 'coords-badge';
+        badge.textContent = `{ x: ${loc.x}, y: ${loc.y} }`;
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn';
+        delBtn.innerHTML = '✖';
+        delBtn.title = 'Remove point';
+        delBtn.addEventListener('click', () => {
+          removeLocation(loc.id);
+        });
+
+        header.appendChild(badge);
+        header.appendChild(delBtn);
+
+        // Input field for the island name
+        const input = document.createElement('input');
+        input.className = 'name-input';
+        input.type = 'text';
+        input.placeholder = 'Enter Island Name...';
+        input.value = loc.name;
+        
+        input.addEventListener('input', (e) => {
+          loc.name = e.target.value;
+          // Update the floating label on the map dot
+          const label = document.getElementById('marker-label-' + loc.id);
+          if(label) label.textContent = loc.name || `Point ${loc.id}`;
+          updateJSON();
+        });
+
+        item.appendChild(header);
+        item.appendChild(input);
+        
+        logList.appendChild(item);
+      });
+    }
+
+    // Remove a location
+    function removeLocation(id) {
+      locations = locations.filter(l => l.id !== id);
+      const marker = document.getElementById('marker-' + id);
+      if(marker) marker.remove();
+      renderLog();
+      updateJSON();
+    }
+
+    // Generate and format the JSON array
+    function updateJSON() {
+      // Map to remove internal 'id' before exporting
+      const exportData = locations.map(loc => ({
+        name: loc.name,
+        x: loc.x,
+        y: loc.y
+      }));
+      
+      // Formatting the JSON nicely
+      jsonOutput.value = JSON.stringify(exportData, null, 2);
+    }
+
+    // Copy to clipboard
+    copyBtn.addEventListener('click', () => {
+      jsonOutput.select();
+      document.execCommand('copy');
+      
+      const originalText = copyBtn.textContent;
+      copyBtn.textContent = '✅ Copied!';
+      setTimeout(() => {
+        copyBtn.textContent = originalText;
+      }, 2000);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   GRAND LINE DISPATCH — CSS CUSTOM PROPERTIES
+   All design tokens live here. Edit this file to retheme the entire game.
+═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Color Palette ──────────────────────────────────────────────────── */
+  --color-bg-deep:        #0a0f1e;   /* Deep ocean night */
+  --color-bg-surface:     #111827;   /* Elevated surface */
+  --color-bg-card:        #1a2236;   /* Card background */
+  --color-bg-card-hover:  #1f2a40;   /* Card hover state */
+
+  --color-ocean:          #1a5f8a;   /* Mid ocean blue */
+  --color-ocean-light:    #2d8bbf;   /* Bright wave */
+  --color-ocean-dark:     #0d3352;   /* Deep trench */
+
+  --color-gold:           #c8a84b;   /* Pirate gold */
+  --color-gold-light:     #e8c96e;   /* Bright gold */
+  --color-gold-dark:      #8a6f2b;   /* Aged gold */
+
+  --color-parchment:      #f4e9c8;   /* Old map parchment */
+  --color-parchment-dim:  #c9b98a;   /* Faded parchment */
+
+  --color-text-primary:   #e8dcc8;   /* Primary readable text */
+  --color-text-secondary: #cddbe5;   /* Lightened Subdued text for readability */
+  --color-text-muted:     #8f9fae;   /* Lightened Muted/disabled text for readability */
+  --color-text-inverse:   #0a0f1e;   /* Text on light bg */
+
+  --color-danger:         #d94f4f;   /* Damage / danger red */
+  --color-danger-dark:    #8b2020;   /* Deep danger */
+  --color-danger-light:   #f07070;   /* Soft danger */
+
+  --color-success:        #4caf72;   /* Heal / loot green */
+  --color-success-dark:   #2d7a4e;   /* Deep success */
+  --color-success-light:  #72cf96;   /* Soft success */
+
+  --color-warning:        #e09c2a;   /* Warning amber */
+  --color-info:           #5b9bd5;   /* Info blue */
+
+  --color-border:         #2a3a52;   /* Default border */
+  --color-border-accent:  #c8a84b;   /* Accent border */
+
+  /* ── Combat Style Colors ────────────────────────────────────────────── */
+  --color-brawler:        #e85c45;   /* Brawler fiery red */
+  --color-swordsman:      #4caf72;   /* Swordsman emerald */
+  --color-sniper:         #5b9bd5;   /* Sniper steel blue */
+
+  /* ── Event Type Colors ──────────────────────────────────────────────── */
+  --color-event-combat:   #d94f4f;
+  --color-event-loot:     #c8a84b;
+  --color-event-story:    #9b7fd4;
+  --color-event-weather:  #5b9bd5;
+
+  /* ── Devil Fruit Glow (default, overridden per-fruit via JS) ────────── */
+  --df-glow-color:        #9b7fd4;
+  --df-glow-color-2:      #c8a84b;
+  --df-bg-tint:           rgba(155, 127, 212, 0.08);
+
+  /* ── Typography ─────────────────────────────────────────────────────── */
+  /* Switched body to a cleaner sans-serif, and UI to standard sans-serif for max readability */
+  --font-body:    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-ui:      system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Increased font sizes slightly across the board */
+  --text-xs:    0.85rem; 
+  --text-sm:    0.95rem;
+  --text-base:  1.05rem;
+  --text-md:    1.20rem;
+  --text-lg:    1.45rem;
+  --text-xl:    1.75rem;
+  --text-2xl:   2.2rem;
+  --text-3xl:   2.8rem;
+
+  --leading-tight:  1.3;
+  --leading-normal: 1.6;
+  --leading-loose:  1.9;
+
+  /* ── Spacing Scale ──────────────────────────────────────────────────── */
+  --space-2xs: 0.25rem;
+  --space-xs:  0.5rem;
+  --space-sm:  0.75rem;
+  --space-md:  1rem;
+  --space-lg:  1.5rem;
+  --space-xl:  2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+
+  /* ── Border & Radius ────────────────────────────────────────────────── */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  --border-width: 1px;
+  --border-width-thick: 2px;
+
+  /* ── Shadows ────────────────────────────────────────────────────────── */
+  --shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md:  0 4px 12px rgba(0, 0, 0, 0.55);
+  --shadow-lg:  0 8px 28px rgba(0, 0, 0, 0.65);
+  --shadow-glow-gold: 0 0 12px rgba(200, 168, 75, 0.45);
+  --shadow-glow-df:   0 0 18px var(--df-glow-color);
+
+  /* ── Transitions ────────────────────────────────────────────────────── */
+  --transition-fast:   150ms ease;
+  --transition-normal: 280ms ease;
+  --transition-slow:   500ms ease;
+
+  /* ── Z-Index Scale ──────────────────────────────────────────────────── */
+  --z-base:    1;
+  --z-overlay: 100;
+  --z-modal:   200;
+  --z-toast:   300;
+}
+
+/* ── Devil Fruit Active State ────────────────────────────────────────────── */
+body.df-active {
+  --df-glow-color: var(--df-active-glow, #9b7fd4);
+}
+
+/* Paramecia fruit */
+body.df-paramecia {
+  --df-active-glow:  #9b7fd4;
+  --df-active-glow2: #c89bff;
+  --df-bg-tint:      rgba(155, 127, 212, 0.08);
+}
+
+/* Zoan fruit */
+body.df-zoan {
+  --df-active-glow:  #4caf72;
+  --df-active-glow2: #a0e0b8;
+  --df-bg-tint:      rgba(76, 175, 114, 0.08);
+}
+
+/* Logia fruit */
+body.df-logia {
+  --df-active-glow:  #e09c2a;
+  --df-active-glow2: #ffe090;
+  --df-bg-tint:      rgba(224, 156, 42, 0.08);
+}
