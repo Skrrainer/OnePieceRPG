@@ -97,44 +97,68 @@ export function renderHub(state) {
 
   // ── Navigation (Log Pose) ───────────────────────────────────────────────
   const logPoseContainer = document.getElementById('log-pose-destinations');
-  if (logPoseContainer && (!logPoseContainer.hasChildNodes() || logPoseContainer.dataset.day !== String(state.day))) {
-    const destinations = generateLogPoseDestinations();
-    logPoseContainer.innerHTML = '';
-    logPoseContainer.dataset.day = state.day;
 
-    destinations.forEach(island => {
-      const btn = document.createElement('button');
-      btn.className = 'btn btn--ghost island-btn';
-      btn.innerHTML = `
-        <span class="island-icon">${island.icon}</span>
-        <div class="island-info">
-          <span class="island-name">${island.name}</span>
-          <span class="island-type">${island.type}</span>
-        </div>
-      `;
+  if (logPoseContainer) {
+    // Only rebuild the DOM buttons if the day has changed or it's empty
+    if (!logPoseContainer.hasChildNodes() || logPoseContainer.dataset.day !== String(state.day)) {
+      const destinations = generateLogPoseDestinations();
+      logPoseContainer.innerHTML = '';
+      logPoseContainer.dataset.day = state.day;
 
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.island-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
+      destinations.forEach(island => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn--ghost island-btn';
+        btn.innerHTML = `
+          <span class="island-icon">${island.icon}</span>
+          <div class="island-info">
+            <span class="island-name">${island.name}</span>
+            <span class="island-type">${island.type}</span>
+          </div>
+        `;
 
-        // Enable sail button and update text
-        const sailBtn = document.getElementById('set-sail-btn');
-        if (sailBtn) {
-          sailBtn.disabled = false;
-          sailBtn.textContent = `🌊 Set Sail to ${island.name}`;
-          sailBtn.dataset.destination = island.id;
-        }
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.island-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+
+          const sailBtn = document.getElementById('set-sail-btn');
+          if (sailBtn) {
+            const freshState = getState();
+            if (freshState.logPoseCharge >= 3) {
+              sailBtn.disabled = false;
+              sailBtn.textContent = `🌊 Set Sail to ${island.name}`;
+            } else {
+              sailBtn.disabled = true;
+              sailBtn.textContent = `🔒 Need ${3 - freshState.logPoseCharge} more charge`;
+            }
+            sailBtn.dataset.destination = island.id;
+          }
+        });
+
+        logPoseContainer.appendChild(btn);
       });
 
-      logPoseContainer.appendChild(btn);
-    });
+      const sailBtn = document.getElementById('set-sail-btn');
+      if (sailBtn) {
+        sailBtn.disabled = true;
+        sailBtn.textContent = '🧭 Select a Destination';
+        delete sailBtn.dataset.destination;
+      }
+    }
 
-    // Reset sail button state until an island is picked
+    // CRITICAL FIX: Always run this check on render, even if we didn't rebuild the DOM.
+    // This dynamically updates the Sail button immediately when the node overlay closes.
     const sailBtn = document.getElementById('set-sail-btn');
-    if (sailBtn) {
-      sailBtn.disabled = true;
-      sailBtn.textContent = '🧭 Select a Destination';
-      delete sailBtn.dataset.destination;
+    if (sailBtn && sailBtn.dataset.destination) {
+      const selectedIsland = ISLANDS.find(i => i.id === sailBtn.dataset.destination);
+      if (selectedIsland) {
+        if (state.logPoseCharge >= 3) {
+          sailBtn.disabled = false;
+          sailBtn.textContent = `🌊 Set Sail to ${selectedIsland.name}`;
+        } else {
+          sailBtn.disabled = true;
+          sailBtn.textContent = `🔒 Need ${3 - state.logPoseCharge} more charge`;
+        }
+      }
     }
   }
 }
@@ -146,6 +170,12 @@ export function renderHub(state) {
  * Should be called once on app initialisation.
  */
 export function bindHubActions() {
+  // ── Explore Area (Legacy Fallback) ──────────────────────────────────────
+  document.getElementById('explore-btn')?.addEventListener('click', async () => {
+    const { triggerLocalExploration } = await import('../engine/gameLoop.js');
+    triggerLocalExploration();
+  });
+
   // ── Tavern: Rest ─────────────────────────────────────────────────────────
   document.getElementById('tavern-rest-btn')?.addEventListener('click', async () => {
     const state = getState();

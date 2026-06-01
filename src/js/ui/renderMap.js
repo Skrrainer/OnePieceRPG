@@ -201,9 +201,14 @@ export function bindMapEvents() {
       
       let actionHtml = '';
       if (isDest) {
+        const state = getState();
+        const canSail = state.logPoseCharge >= 3;
+
         actionHtml = `
           <div style="margin-top: 10px;">
-            <button class="btn btn--primary btn--sm" id="map-sail-action-btn" data-destination="${island.id}">🌊 Sail to ${island.name}</button>
+            <button class="btn btn--primary btn--sm" id="map-sail-action-btn" data-destination="${island.id}" ${!canSail ? 'disabled' : ''}>
+              ${canSail ? `🌊 Sail to ${island.name}` : `🔒 Need ${3 - state.logPoseCharge} more charge`}
+            </button>
           </div>
         `;
       }

@@ -200,8 +200,8 @@ export const DEVIL_FRUITS = [
 
 // ── Drop Rates ─────────────────────────────────────────────────────────────
 export const DROP_RATES = {
-  DEVIL_FRUIT_CHANCE: 1,        // 2% per sail if no fruit already held
-  RARE_EVENT_CHANCE: 1,         // 8% chance for a rare event variant
+  DEVIL_FRUIT_CHANCE: 0.02,        // 2% per sail if no fruit already held
+  RARE_EVENT_CHANCE: 0.02,         // 8% chance for a rare event variant
   CREW_RECRUIT_SUCCESS: 0.65,      // 65% success rate at Tavern recruitment
 };
 

@@ -7,12 +7,16 @@ import { loadPlayer, checkDbReady, loadPlayerCrew } from './supabase/client.js';
 import { initState, getState }      from './engine/playerState.js';
 import { setCrew }                  from './engine/crewState.js';
 import { sailDay }                 from './engine/gameLoop.js';
-import { initCreationForm, renderProfile, renderCrew } from './ui/renderCharacter.js';
+import { renderProfile, renderCrew } from './ui/renderCharacter.js';
+import { initAuthForms }           from './ui/renderAuth.js';
 import { clearLog, showToast }     from './ui/renderEvents.js';
 import { renderHub, bindHubActions } from './ui/renderHub.js';
 import { initInlineMap, renderInlineMapMarkers } from './ui/renderMap.js';
 import { initInventory }           from './ui/renderInventory.js';
 import { SEAS, DEVIL_FRUITS }      from './config/gameData.js';
+
+// Initialize the Island Nodes module to attach window.GLD_NODES
+import './ui/renderIslandNodes.js';
 
 // ── Screen Navigation ─────────────────────────────────────────────────────
 
@@ -64,7 +68,7 @@ async function bootstrap() {
   }
 
   // ── 3. Initialise modules ─────────────────────────────────────────────────
-  initCreationForm();
+  initAuthForms();
   bindHubActions();
   initInventory();
   _bindSailButton();

@@ -3,7 +3,7 @@
 //  Voyage event log rendering and interactive choices system.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { getState, applyEventOutcome, toSaveObject, isDead, addInventoryItem } from '../engine/playerState.js';
+import { getState, applyEventOutcome, toSaveObject, isDead, addInventoryItem, modifyFood, modifyCola, chargeLogPose } from '../engine/playerState.js';
 import { savePlayer } from '../supabase/client.js';
 
 /**
@@ -114,6 +114,8 @@ function _buildEventEntry(evt, day, fruitDrop) {
         success: {
           hp: evt.outcome_hp || 0,
           gold: evt.outcome_gold || 0,
+          food: evt.outcome_food || 0,
+          cola: evt.outcome_cola || 0,
           text: 'The event resolves.',
           item: evt.is_devil_fruit_drop ? 'devil_fruit' : undefined
         }
@@ -147,6 +149,13 @@ function _buildEventEntry(evt, day, fruitDrop) {
       const outcome = isSuccess ? choice.success : choice.fail;
 
       applyEventOutcome({ hp: outcome.hp || 0, gold: outcome.gold || 0 });
+      if (outcome.food) modifyFood(outcome.food);
+      if (outcome.cola) modifyCola(outcome.cola);
+      
+      if (evt.is_exploration) {
+         chargeLogPose(1);
+      }
+
       const currentState = getState();
 
       const resultText = document.createElement('p');
@@ -177,9 +186,12 @@ function _buildEventEntry(evt, day, fruitDrop) {
           finalOutcomeText = "You check your bag... it was just a regular, terrible-tasting melon.";
           outcomesDiv.appendChild(_chip(`Just a normal fruit`, 'neutral'));
         }
-      } else if (outcome.gold || outcome.hp) {
+      } else if (outcome.gold || outcome.hp || outcome.food || outcome.cola || evt.is_exploration) {
+        if (evt.is_exploration) outcomesDiv.appendChild(_chip('+1 🧭 Charge', 'positive'));
         if (outcome.gold) outcomesDiv.appendChild(_chip(outcome.gold > 0 ? `+${outcome.gold} 💰` : `${outcome.gold} 💰`, outcome.gold > 0 ? 'positive' : 'negative'));
         if (outcome.hp)   outcomesDiv.appendChild(_chip(outcome.hp > 0 ? `+${outcome.hp} ❤️` : `${outcome.hp} ❤️`, outcome.hp > 0 ? 'positive' : 'negative'));
+        if (outcome.food) outcomesDiv.appendChild(_chip(outcome.food > 0 ? `+${outcome.food} 🥩` : `${outcome.food} 🥩`, outcome.food > 0 ? 'positive' : 'negative'));
+        if (outcome.cola) outcomesDiv.appendChild(_chip(outcome.cola > 0 ? `+${outcome.cola} 🥤` : `${outcome.cola} 🥤`, outcome.cola > 0 ? 'positive' : 'negative'));
       } else {
         outcomesDiv.appendChild(_chip('No casualties', 'neutral'));
       }
@@ -191,6 +203,9 @@ function _buildEventEntry(evt, day, fruitDrop) {
       // Dynamically import renderProfile to break the circular dependency cycle!
       const { renderProfile } = await import('./renderCharacter.js');
       renderProfile(currentState);
+      
+      const { renderHub } = await import('./renderHub.js');
+      renderHub(currentState);
 
       await savePlayer(toSaveObject());
 
