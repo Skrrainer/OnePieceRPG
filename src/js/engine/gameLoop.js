@@ -76,19 +76,6 @@ export async function sailDay(destinationId) {
     events = shuffled.slice(0, Math.min(eventCount, shuffled.length));
   }
 
-  // Inject an Arrival event with a generic continue choice
-  events.push({
-    id: 'arrival_event',
-    title: `Arrived at ${destination.name}`,
-    description: `The ship drops anchor at ${destination.name}. ${destination.description} (Journey took ${daysToTravel} days)`,
-    choices: [{
-      label: 'Drop Anchor',
-      success: { hp: 0, gold: 0, text: 'You have arrived.' }
-    }],
-    is_devil_fruit_drop: false,
-    cssModifier: 'arrival'
-  });
-
   // ── 3. Devil Fruit drop check ────────────────────────────────────────────
   let fruitDrop = null;
   const updatedState = getState();

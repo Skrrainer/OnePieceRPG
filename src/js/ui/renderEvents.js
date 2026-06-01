@@ -114,7 +114,8 @@ function _buildEventEntry(evt, day, fruitDrop) {
         success: {
           hp: evt.outcome_hp || 0,
           gold: evt.outcome_gold || 0,
-          text: 'The event resolves.'
+          text: 'The event resolves.',
+          item: evt.is_devil_fruit_drop ? 'devil_fruit' : undefined
         }
       }];
 
@@ -158,7 +159,7 @@ function _buildEventEntry(evt, day, fruitDrop) {
       let finalOutcomeText = outcome.text || (isSuccess ? 'Success!' : 'Failed.');
 
       // Inject Devil Fruit to inventory if won
-      if (outcome.item === 'devil_fruit') {
+      if (outcome.item === 'devil_fruit' || (isSuccess && evt.is_devil_fruit_drop)) {
         if (fruitDrop) {
           addInventoryItem({
             id: fruitDrop.id,
