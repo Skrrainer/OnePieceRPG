@@ -186,3 +186,12 @@ export async function saveCrewHp(playerId, crewId, currentHp) {
   if (error) console.error('[GLD] saveCrewHp error:', error.message);
   return { error };
 }
+
+export async function fetchAllIslands() {
+  if (!supabase || !(await checkDbReady())) return { data: [], error: null };
+  const { data, error } = await supabase
+      .from('islands')
+      .select('*');
+  if (error) console.error('[GLD] fetchAllIslands error:', error.message);
+  return { data: data ?? [], error };
+}

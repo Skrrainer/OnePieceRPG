@@ -4,7 +4,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { HUB_SERVICES, DROP_RATES, CLASSES } from '../config/gameData.js';
-import { QUESTS } from '../config/quests.js';
 import {
   getState,
   applyEventOutcome,
@@ -45,12 +44,13 @@ const DISPATCH_TASKS = [
 
 export function renderHub(state) {
   const hubTitle = document.getElementById('hub-title');
+  const currentIslandObj = ISLANDS.find(i => i.id === state.currentIsland);
+
   if (hubTitle) {
-    const currentIsland = ISLANDS.find(i => i.id === state.currentIsland);
-    hubTitle.textContent = currentIsland ? currentIsland.name : 'Island of Respite';
+    hubTitle.textContent = currentIslandObj ? currentIslandObj.name : 'Island of Respite';
   }
 
-  _renderTavernBoard(state);
+  _renderTavernBoard(state, currentIslandObj);
   _renderCrewDispatch(state);
 
   const restBtn = document.getElementById('tavern-rest-btn');
@@ -103,16 +103,19 @@ export function renderHub(state) {
           document.querySelectorAll('.island-btn').forEach(b => b.classList.remove('selected'));
           btn.classList.add('selected');
           const sailBtn = document.getElementById('set-sail-btn');
+
           if (sailBtn) {
-            const isCleared = getState().clearedIslands.includes(getState().currentIsland);
-            const isCharged = getState().logPoseCharge >= 3;
+            // Smart Port Check: If the island has no boss quest, the port is unlocked by default.
+            const isCleared = state.clearedIslands.includes(state.currentIsland) || !currentIslandObj?.boss_quest;
+            const requiredCharge = currentIslandObj?.record_time || 3;
+            const isCharged = state.logPoseCharge >= requiredCharge;
 
             if (!isCleared) {
               sailBtn.disabled = true;
               sailBtn.textContent = `🔒 Port Locked (Defeat Island Boss)`;
             } else if (!isCharged) {
               sailBtn.disabled = true;
-              sailBtn.textContent = `🔒 Log Pose Setting (${getState().logPoseCharge}/3 Days)`;
+              sailBtn.textContent = `🔒 Log Pose Setting (${state.logPoseCharge}/${requiredCharge} Days)`;
             } else {
               sailBtn.disabled = false;
               sailBtn.textContent = `🌊 Set Sail to ${island.name}`;
@@ -132,11 +135,11 @@ export function renderHub(state) {
   }
 }
 
-// ── Dynamic Quest Generator ───────────────────────────────────────────────
+// ── Database-Driven Quest Generator ───────────────────────────────────────
 
-function _renderTavernBoard(state) {
+function _renderTavernBoard(state, currentIsland) {
   const tavernCard = document.getElementById('hub-tavern');
-  if (!tavernCard) return;
+  if (!tavernCard || !currentIsland) return;
 
   let boardSection = document.getElementById('tavern-job-board');
   if (!boardSection) {
@@ -148,10 +151,12 @@ function _renderTavernBoard(state) {
     tavernCard.appendChild(boardSection);
   }
 
-  if (state.activeQuest) {
-    const qDef = QUESTS.find(q => q.id === state.activeQuest.id);
-    if (!qDef) return;
+  const isCleared = state.clearedIslands.includes(state.currentIsland) || !currentIsland.boss_quest;
+  const sideQuests = currentIsland.side_quests || [];
 
+  // If currently executing a multi-stage boss quest
+  if (state.activeQuest && currentIsland.boss_quest?.id === state.activeQuest.id) {
+    const qDef = currentIsland.boss_quest;
     const currentStageIdx = state.activeQuest.stage - 1;
 
     if (currentStageIdx < qDef.stages.length) {
@@ -182,39 +187,58 @@ function _renderTavernBoard(state) {
       document.getElementById('btn-quest-fight').onclick = () => _finishQuest(qDef);
     }
   } else {
-    // If the island is already cleared, show a generic message
-    if (state.clearedIslands.includes(state.currentIsland)) {
-      boardSection.innerHTML = `
-          <h4 style="color: var(--color-gold); margin-bottom: 0.5rem;">📜 Tavern Job Board</h4>
-          <p style="font-size:0.9rem; color: var(--color-text-muted);">The local boss has been dealt with. The port is safe, and the board is empty.</p>
-        `;
-      return;
-    }
-
-    const playerTier = Math.max(1, Math.ceil(state.level / 2));
-    const availableQuests = QUESTS.filter(q => q.tier === playerTier || q.tier === playerTier - 1);
-
+    // Show available jobs from DB
     let html = `<h4 style="color: var(--color-gold); margin-bottom: 0.5rem;">📜 Tavern Job Board</h4>`;
 
-    availableQuests.forEach(q => {
+    // Render Boss Threat if not cleared
+    if (!isCleared && currentIsland.boss_quest) {
+      const bq = currentIsland.boss_quest;
       html += `
-        <div style="background:rgba(0,0,0,0.2); padding:8px; border-radius:4px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <strong style="font-size:0.9rem;">${q.name} <span style="color:var(--color-text-muted); font-size:0.8rem;">(Tier ${q.tier})</span></strong>
-            <div style="font-size:0.75rem; color:var(--color-text-muted);">Rewards: ${q.reward.gold} Gold, ${q.reward.exp} EXP</div>
-          </div>
-          <button class="btn btn--primary btn--sm" id="btn-accept-${q.id}">Accept</button>
+        <div style="background:rgba(255,0,0,0.1); border: 1px solid var(--color-danger); padding:8px; border-radius:4px; margin-bottom:8px;">
+            <strong style="color: var(--color-danger-light);">${bq.name} (Boss Threat)</strong>
+            <div style="font-size:0.75rem; color:var(--color-text-muted); margin-bottom: 8px;">Rewards: ${bq.reward.gold}g, ${bq.reward.exp} EXP</div>
+            <button class="btn btn--danger btn--sm" id="btn-accept-boss">Accept Main Quest</button>
         </div>
       `;
-    });
+    }
+
+    // Render DB Side Quests
+    if (sideQuests.length > 0) {
+      html += `<div style="font-size: 0.8rem; color: var(--color-text-muted); margin: 1rem 0 0.5rem 0; text-transform: uppercase;">Local Jobs</div>`;
+      sideQuests.forEach(sq => {
+        const mod = getModifier(sq.stat);
+        const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
+        html += `
+              <div style="background:rgba(0,0,0,0.2); padding:8px; border-radius:4px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex: 2; padding-right: 8px;">
+                  <strong style="font-size:0.9rem;">${sq.name}</strong>
+                  <div style="font-size:0.75rem; color:var(--color-text-muted); line-height:1.2; margin: 4px 0;">${sq.desc}</div>
+                  <div style="font-size:0.75rem; color:var(--color-gold);">Rewards: ${sq.reward.gold}g, ${sq.reward.exp} EXP</div>
+                </div>
+                <div style="flex: 1; text-align: right;">
+                    <button class="btn btn--ghost btn--sm" id="btn-sq-${sq.id}" style="width:100%;">Execute<br/><small>[${sq.stat.toUpperCase()} ${modStr} vs DC ${sq.dc}]</small></button>
+                </div>
+              </div>
+          `;
+      });
+    }
+
+    if (isCleared && sideQuests.length === 0) {
+      html += `<p style="font-size:0.9rem; color: var(--color-text-muted);">The port is safe, and the board is empty.</p>`;
+    }
 
     boardSection.innerHTML = html;
 
-    availableQuests.forEach(q => {
-      document.getElementById(`btn-accept-${q.id}`).onclick = () => {
-        setActiveQuest({ id: q.id, stage: 1, modifiers: 0 });
+    // Bindings
+    if (!isCleared && currentIsland.boss_quest) {
+      document.getElementById('btn-accept-boss').onclick = () => {
+        setActiveQuest({ id: currentIsland.boss_quest.id, stage: 1 });
         renderHub(getState());
       };
+    }
+
+    sideQuests.forEach(sq => {
+      document.getElementById(`btn-sq-${sq.id}`).onclick = () => _resolveSideQuest(sq);
     });
   }
 }
@@ -231,8 +255,27 @@ function _resolveQuestStage(stat, dc, tier) {
     applyEventOutcome({ hp: -penalty });
   }
 
-  incrementDay(); // Executing a quest phase takes a day
+  incrementDay();
   advanceQuestStage();
+  renderProfile(getState());
+  renderHub(getState());
+}
+
+function _resolveSideQuest(sq) {
+  const mod = getModifier(sq.stat);
+  const check = rollStatCheck(mod, 0, sq.dc);
+
+  if (check.success) {
+    showToast(`🎲 Passed! (${check.total} vs DC ${sq.dc}) Claimed ${sq.reward.gold}g!`, 'success');
+    applyEventOutcome({ gold: sq.reward.gold });
+    gainExp(sq.reward.exp);
+  } else {
+    const penalty = 15;
+    showToast(`🎲 Failed! (${check.total} vs DC ${sq.dc}) Took ${penalty} DMG!`, 'danger');
+    applyEventOutcome({ hp: -penalty });
+  }
+
+  incrementDay();
   renderProfile(getState());
   renderHub(getState());
 }
@@ -248,8 +291,8 @@ async function _finishQuest(qDef) {
     applyEventOutcome({ gold: qDef.reward.gold });
     setActiveQuest(null);
 
-    clearCurrentIsland(); // Unlocks the port
-    chargeLogPose(3); // Instantly charges the Log Pose as a reward
+    clearCurrentIsland();
+    chargeLogPose(3);
 
     showToast(`💀 Target Neutralized! The port is open!`, 'gold');
     await savePlayer(toSaveObject());
@@ -364,7 +407,7 @@ export function bindHubActions() {
     if (state.hp >= state.maxHp) return;
 
     restoreHp(HUB_SERVICES.TAVERN.REST_HP_RESTORE);
-    incrementDay(); // Resting takes a full day
+    incrementDay();
 
     await savePlayer(toSaveObject());
     renderProfile(getState());

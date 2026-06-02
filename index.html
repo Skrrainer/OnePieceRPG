@@ -170,7 +170,7 @@
           </div>
           <div class="map-wrapper" id="game-map-wrapper">
             <div class="map-inner" id="game-map-inner" style="transform: translate(0px, 0px) scale(1);">
-              <img src="/lm93f2q9fqaf1.jpeg" class="map-image" id="game-map-image" alt="Grand Line Map" draggable="false" />
+              <img src="/OnePieceMap.png" class="map-image" id="game-map-image" alt="Grand Line Map" draggable="false" />
             </div>
             <div class="map-controls">
               <button class="map-btn" id="map-zoom-out">−</button>
@@ -382,6 +382,36 @@
       <div id="market-details" class="card" style="flex: 2; min-width: 250px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color);">
         <p class="text-muted" style="text-align: center; margin-top: 2rem;">Select an item to view its price and stats.</p>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- NAVAL COMBAT OVERLAY -->
+<div id="naval-overlay" class="modal-overlay" role="dialog" aria-modal="true" hidden>
+  <div class="modal-box card" style="max-width: 900px; width: 95%;">
+    <h3 class="modal-box__title" style="margin-bottom: 0.5rem; color: var(--color-danger);">⚓ Naval Interception</h3>
+    <p style="text-align: center; font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 1rem;">Defend your vessel. Destroy the enemy hull to proceed.</p>
+
+    <div style="text-align: center; font-weight: bold; color: var(--color-success-light); margin-bottom: 1rem; padding: 0.5rem; background: var(--color-bg-deep); border-radius: 4px;">
+      ⚡ Fleet Energy: <span id="naval-energy">0</span> / <span id="naval-energy-max">0</span>
+    </div>
+
+    <div style="display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center;">
+      <!-- Player Board -->
+      <div style="flex: 1; min-width: 280px; max-width: 400px;">
+        <h4 style="text-align: center; color: var(--color-info); margin-bottom: 0.5rem;">Your Ship</h4>
+        <div id="naval-player-grid" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; background: rgba(0,0,0,0.5); padding: 4px; border-radius: 4px; border: 1px solid var(--border-color);"></div>
+      </div>
+
+      <!-- Enemy Board -->
+      <div style="flex: 1; min-width: 280px; max-width: 400px;">
+        <h4 style="text-align: center; color: var(--color-danger); margin-bottom: 0.5rem;">Enemy Vessel</h4>
+        <div id="naval-enemy-grid" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; background: rgba(0,0,0,0.5); padding: 4px; border-radius: 4px; border: 1px solid var(--color-danger-dark);"></div>
+      </div>
+    </div>
+
+    <div id="naval-actions-container" style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; padding-top: 1rem; border-top: 1px dashed var(--border-color);">
+      <!-- Action Buttons Injected via JS -->
     </div>
   </div>
 </div>

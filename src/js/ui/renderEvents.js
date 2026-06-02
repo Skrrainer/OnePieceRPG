@@ -17,6 +17,9 @@ import {
 } from '../engine/playerState.js';
 import { savePlayer } from '../supabase/client.js';
 import { rollStatCheck } from '../engine/rng.js';
+import { startNavalCombat } from '../engine/navalCombat.js';
+import { updateNavalUI } from './renderNaval.js';
+import { getCrew } from '../engine/crewState.js';
 
 /**
  * Renders a list of resolved voyage events into the #event-log container.
@@ -141,9 +144,8 @@ function _buildEventEntry(evt, day, fruitDrop) {
     let isDiceRoll = false;
 
     // Detect if this choice requires a d20 stat check
-    // Assuming the database now passes { stat: 'dex', dc: 15 } instead of { stat: 'accuracy', difficulty: 10 }
     const targetStat = choice.stat ? choice.stat.toLowerCase() : null;
-    const targetDc = choice.dc || choice.difficulty; // Support legacy 'difficulty' tag temporarily
+    const targetDc = choice.dc || choice.difficulty;
 
     if (targetStat && targetDc) {
       isDiceRoll = true;
@@ -192,6 +194,30 @@ function _buildEventEntry(evt, day, fruitDrop) {
 
       const outcome = isSuccess ? choice.success : choice.fail;
 
+      // ── NAVAL COMBAT HOOK ──
+      let playerWonCombat = null;
+      if (outcome.triggerNavalCombat) {
+        document.getElementById('naval-overlay').hidden = false;
+        const fleetEnergy = 3 + getCrew().length;
+
+        // Wrap combat in a Promise to wait for resolution before printing the log
+        playerWonCombat = await new Promise(resolve => {
+          startNavalCombat(fleetEnergy, updateNavalUI, (won) => {
+            document.getElementById('naval-overlay').hidden = true;
+            resolve(won);
+          });
+        });
+
+        if (playerWonCombat) {
+          applyEventOutcome({ gold: 100 });
+          gainExp(50);
+          showToast('Enemy ship sunk! Claimed 100g and 50 EXP.', 'success');
+        } else {
+          applyEventOutcome({ hp: -25 });
+          showToast('Your ship was heavily damaged in combat!', 'danger');
+        }
+      }
+
       // Apply modifiers
       applyEventOutcome({ hp: outcome.hp || 0, gold: outcome.gold || 0 });
       if (outcome.food) modifyFood(outcome.food);
@@ -218,6 +244,11 @@ function _buildEventEntry(evt, day, fruitDrop) {
       outcomesDiv.className = 'event-entry__outcomes';
 
       let finalOutcomeText = outcome.text || (isSuccess ? 'Success!' : 'Failed.');
+
+      // Append combat narrative if applicable
+      if (outcome.triggerNavalCombat) {
+        finalOutcomeText += playerWonCombat ? " The enemy vessel was destroyed." : " You barely escaped with your lives.";
+      }
 
       // Inject Devil Fruit to inventory if won
       if (outcome.item === 'devil_fruit' || (isSuccess && evt.is_devil_fruit_drop)) {
@@ -246,8 +277,18 @@ function _buildEventEntry(evt, day, fruitDrop) {
         if (outcome.food) outcomesDiv.appendChild(_chip(outcome.food > 0 ? `+${outcome.food} 🥩` : `${outcome.food} 🥩`, outcome.food > 0 ? 'positive' : 'negative'));
         if (outcome.cola) outcomesDiv.appendChild(_chip(outcome.cola > 0 ? `+${outcome.cola} 🥤` : `${outcome.cola} 🥤`, outcome.cola > 0 ? 'positive' : 'negative'));
 
+        // Render Naval Combat rewards/penalties in the log
+        if (outcome.triggerNavalCombat) {
+          if (playerWonCombat) {
+            outcomesDiv.appendChild(_chip('+100 💰', 'positive'));
+            outcomesDiv.appendChild(_chip('+50 EXP', 'positive'));
+          } else {
+            outcomesDiv.appendChild(_chip('-25 ❤️', 'negative'));
+          }
+        }
+
         // If literally nothing changed and no EXP was gained, show a neutral chip
-        if (!outcome.gold && !outcome.hp && !outcome.food && !outcome.cola && !evt.is_exploration && expGained === 0) {
+        if (!outcome.gold && !outcome.hp && !outcome.food && !outcome.cola && !evt.is_exploration && expGained === 0 && !outcome.triggerNavalCombat) {
           outcomesDiv.appendChild(_chip('No casualties', 'neutral'));
         }
       }
