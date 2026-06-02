@@ -73,22 +73,37 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Combat Style</label>
-            <div class="style-grid" role="radiogroup" aria-label="Combat Style">
-              <label class="style-card" data-style="BRAWLER">
-                <input type="radio" name="combatStyle" value="BRAWLER" required />
-                <span class="style-card__icon">👊</span>
-                <span class="style-card__name">Brawler</span>
+            <label class="form-label">Ship Role</label>
+            <div class="style-grid" role="radiogroup" aria-label="Ship Role" style="grid-template-columns: repeat(2, 1fr);">
+              <label class="style-card" data-style="CAPTAIN">
+                <input type="radio" name="role" value="CAPTAIN" required />
+                <span class="style-card__icon">🏴‍☠️</span>
+                <span class="style-card__name">Captain</span>
               </label>
-              <label class="style-card" data-style="SWORDSMAN">
-                <input type="radio" name="combatStyle" value="SWORDSMAN" />
-                <span class="style-card__icon">⚔️</span>
-                <span class="style-card__name">Swordsman</span>
+              <label class="style-card" data-style="NAVIGATOR">
+                <input type="radio" name="role" value="NAVIGATOR" />
+                <span class="style-card__icon">🧭</span>
+                <span class="style-card__name">Navigator</span>
               </label>
               <label class="style-card" data-style="SNIPER">
-                <input type="radio" name="combatStyle" value="SNIPER" />
+                <input type="radio" name="role" value="SNIPER" />
                 <span class="style-card__icon">🎯</span>
                 <span class="style-card__name">Sniper</span>
+              </label>
+              <label class="style-card" data-style="SHIPWRIGHT">
+                <input type="radio" name="role" value="SHIPWRIGHT" />
+                <span class="style-card__icon">🔨</span>
+                <span class="style-card__name">Shipwright</span>
+              </label>
+              <label class="style-card" data-style="COOK">
+                <input type="radio" name="role" value="COOK" />
+                <span class="style-card__icon">🍳</span>
+                <span class="style-card__name">Cook</span>
+              </label>
+              <label class="style-card" data-style="DOCTOR">
+                <input type="radio" name="role" value="DOCTOR" />
+                <span class="style-card__icon">⚕️</span>
+                <span class="style-card__name">Doctor</span>
               </label>
             </div>
           </div>
@@ -135,6 +150,7 @@
           </div>
         </div>
         <div class="hud-counters">
+          <span class="currency-badge" title="Level">⭐ <span id="profile-level">1</span></span>
           <span class="currency-badge" title="Bounty">💀 <span id="profile-bounty">0</span></span>
           <span class="currency-badge" title="Gold">💰 <span id="profile-gold">0</span></span>
           <span class="currency-badge" title="Food">🥩 <span id="profile-food">100</span></span>
@@ -180,11 +196,14 @@
           <div class="sidebar-panels">
 
             <div class="sidebar-panel active" id="panel-captain" role="tabpanel">
+              <div style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 0.5rem;" id="profile-exp">0 / 300 EXP</div>
               <ul class="combat-stats__list" id="combat-stats-list">
-                <li>⚔️ Attack: <span id="stat-attack">—</span></li>
-                <li>🛡️ Defense: <span id="stat-defense">—</span></li>
-                <li>🎯 Accuracy: <span id="stat-accuracy">—</span></li>
-                <li>💰 Bounty: <span id="profile-bounty">0</span></li>
+                <li>💪 STR: <span id="stat-str">—</span></li>
+                <li>🏃 DEX: <span id="stat-dex">—</span></li>
+                <li>🛡️ CON: <span id="stat-con">—</span></li>
+                <li>🧠 INT: <span id="stat-int">—</span></li>
+                <li>🦉 WIS: <span id="stat-wis">—</span></li>
+                <li>✨ CHA: <span id="stat-cha">—</span></li>
               </ul>
 
               <div class="crew-section">
@@ -244,10 +263,9 @@
                   <span class="hub-card__icon">🏪</span>
                   <h3 class="hub-card__title">Market</h3>
                 </div>
-                <p class="hub-card__desc">Trade supplies for the voyage ahead.</p>
+                <p class="hub-card__desc">Weapons, armor, and supplies for the voyage ahead.</p>
                 <div class="hub-card__actions">
-                  <button class="btn btn--primary" id="market-provisions-btn">🥩 Buy Provisions — 50 Gold</button>
-                  <button class="btn btn--ghost" id="market-cannonball-btn">💣 Buy Cannonballs — 30 Gold</button>
+                  <button class="btn btn--primary btn--full" id="market-browse-btn">🛒 Browse Market Goods</button>
                 </div>
                 <div class="hub-card__result" id="market-result" aria-live="polite"></div>
               </div>
@@ -301,7 +319,6 @@
 
 <div id="toast-container" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
-<!-- OLD MODAL OVERLAYS -->
 <div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" hidden>
   <div class="modal-box card" id="modal-box">
     <button class="modal-close btn btn--ghost btn--sm" id="modal-close-btn" aria-label="Close modal">✕</button>
@@ -311,15 +328,59 @@
   </div>
 </div>
 
+<!-- INVENTORY & EQUIPMENT OVERLAY -->
 <div id="inventory-overlay" class="modal-overlay" role="dialog" aria-modal="true" hidden>
-  <div class="modal-box card" style="max-width: 650px; width: 95%;">
+  <div class="modal-box card" style="max-width: 800px; width: 95%;">
     <button class="modal-close btn btn--ghost btn--sm" id="inventory-close-btn" aria-label="Close modal">✕</button>
-    <h3 class="modal-box__title" style="margin-bottom: 1rem;">🎒 Captain's Bag</h3>
+    <h3 class="modal-box__title" style="margin-bottom: 1rem;">🎒 Captain's Bag & Equipment</h3>
+
     <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
-      <div id="inventory-grid" style="flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 10px; align-content: start; min-width: 250px;">
+      <!-- Equipment Column -->
+      <div style="flex: 0 0 120px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-size: 0.8rem; color: var(--color-text-muted); text-transform: uppercase; text-align: center;">Equipment</div>
+
+        <div id="equip-slot-weapon" style="aspect-ratio: 1/1; border: 1px dashed var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: rgba(0,0,0,0.3); cursor: pointer; position: relative;">
+          <span style="opacity: 0.2; font-size: 1rem; position: absolute;">Weapon</span>
+        </div>
+
+        <div id="equip-slot-armor" style="aspect-ratio: 1/1; border: 1px dashed var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: rgba(0,0,0,0.3); cursor: pointer; position: relative;">
+          <span style="opacity: 0.2; font-size: 1rem; position: absolute;">Armor</span>
+        </div>
+
+        <div id="equip-slot-accessory" style="aspect-ratio: 1/1; border: 1px dashed var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: rgba(0,0,0,0.3); cursor: pointer; position: relative;">
+          <span style="opacity: 0.2; font-size: 1rem; position: absolute;">Accessory</span>
+        </div>
       </div>
-      <div id="inventory-details" class="card" style="flex: 1; min-width: 250px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color);">
+
+      <!-- Inventory Grid -->
+      <div id="inventory-grid" style="flex: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 10px; align-content: start; min-width: 250px;">
+      </div>
+
+      <!-- Item Details -->
+      <div id="inventory-details" class="card" style="flex: 2; min-width: 250px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color);">
         <p class="text-muted" style="text-align: center; margin-top: 2rem;">Select an item to view details.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MARKET OVERLAY -->
+<div id="market-overlay" class="modal-overlay" role="dialog" aria-modal="true" hidden>
+  <div class="modal-box card" style="max-width: 800px; width: 95%;">
+    <button class="modal-close btn btn--ghost btn--sm" id="market-close-btn" aria-label="Close modal">✕</button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h3 class="modal-box__title" style="margin: 0;">🏪 Local Market</h3>
+      <div style="color: var(--color-gold); font-weight: bold;">💰 <span id="market-player-gold">0</span></div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+      <!-- Market Grid -->
+      <div id="market-grid" style="flex: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 10px; align-content: start; min-width: 250px; max-height: 400px; overflow-y: auto; padding-right: 8px;">
+      </div>
+
+      <!-- Market Details -->
+      <div id="market-details" class="card" style="flex: 2; min-width: 250px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color);">
+        <p class="text-muted" style="text-align: center; margin-top: 2rem;">Select an item to view its price and stats.</p>
       </div>
     </div>
   </div>
@@ -329,40 +390,32 @@
      NEW ISLAND NODES OVERLAY
 ═══════════════════════════════════════════════════════════════════ -->
 <div id="node-overlay" class="modal-overlay" role="dialog" aria-modal="true" hidden>
-  <div class="modal-box card" style="max-width: 600px; width: 95%;">
+  <div class="modal-box card" style="max-width: 700px; width: 95%;">
     <button class="modal-close btn btn--ghost btn--sm" onclick="window.GLD_NODES.close()">✕</button>
 
-    <!-- NODE 1: COMBAT -->
+    <!-- NODE 1: SQUAD COMBAT -->
     <div id="node-view-combat" class="node-view" hidden>
       <h3 class="modal-box__title" style="margin-bottom: 1rem; color: var(--color-danger);">⚔️ Combat Encounter</h3>
 
-      <div style="display: flex; justify-content: space-between; margin-bottom: 1rem; padding: 1rem; background: var(--color-bg-deep); border-radius: var(--radius-md);">
-        <!-- Enemy Side -->
-        <div style="text-align: center;">
-          <div id="combat-enemy-icon" style="font-size: 3rem; margin-bottom: 0.5rem;">⚓</div>
-          <h4 id="combat-enemy-name" style="color: var(--color-danger-light);">Marine Grunt</h4>
-          <div>❤️ <span id="combat-enemy-hp">40 / 40</span></div>
-          <div>🛡️ <span id="combat-enemy-block">0</span></div>
-          <div style="margin-top: 0.5rem; font-size: 0.8rem; font-style: italic; color: var(--color-gold);" id="combat-enemy-intent">Planning to attack...</div>
-        </div>
-
-        <!-- VS -->
-        <div style="display:flex; align-items:center; font-weight:bold; color: var(--color-text-muted);">VS</div>
-
-        <!-- Player Side -->
-        <div style="text-align: center;">
-          <div style="font-size: 3rem; margin-bottom: 0.5rem;">🏴‍☠️</div>
-          <h4 style="color: var(--color-ocean-light);">Captain</h4>
-          <div>❤️ <span id="combat-player-hp">100 / 100</span></div>
-          <div>🛡️ <span id="combat-player-block">0</span></div>
-          <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--color-success-light);">⚡ Energy: <span id="combat-player-energy">3</span></div>
-        </div>
+      <!-- Enemies Area -->
+      <div style="margin-bottom: 0.5rem; color: var(--color-text-muted); font-size: 0.8rem; text-transform: uppercase;">Hostiles</div>
+      <div id="combat-enemies-container" style="display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 0.5rem;">
+        <!-- Injected via JS -->
       </div>
 
-      <div style="display: flex; gap: 0.5rem;">
-        <button id="combat-btn-attack" class="btn btn--danger" style="flex:1;">⚔️ Attack (1⚡)</button>
-        <button id="combat-btn-defend" class="btn btn--primary" style="flex:1;">🛡️ Defend (1⚡)</button>
-        <button id="combat-btn-end" class="btn btn--ghost" style="flex:1;">⏭️ End Turn</button>
+      <!-- Energy Divider -->
+      <div style="text-align: center; font-weight: bold; color: var(--color-success-light); border-top: 1px dashed var(--color-border); border-bottom: 1px dashed var(--color-border); margin: 1rem 0; padding: 0.5rem 0;">
+        ⚡ Fleet Energy: <span id="combat-fleet-energy">0</span>
+      </div>
+
+      <!-- Allies Area -->
+      <div style="margin-bottom: 0.5rem; color: var(--color-text-muted); font-size: 0.8rem; text-transform: uppercase;">Your Crew</div>
+      <div id="combat-allies-container" style="display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem;">
+        <!-- Injected via JS -->
+      </div>
+
+      <div style="display: flex; justify-content: flex-end;">
+        <button id="combat-btn-end" class="btn btn--ghost btn--full">⏭️ End Turn</button>
       </div>
     </div>
 
@@ -372,7 +425,7 @@
       <p style="margin-bottom: 1rem; color: var(--color-text-secondary);">Scavenge for supplies, but don't get caught!</p>
 
       <div style="background: var(--color-bg-deep); padding: 1rem; border-radius: var(--radius-md); text-align: center; margin-bottom: 1rem;">
-        <div style="font-size: 1.5rem; color: var(--color-danger-light); margin-bottom: 0.5rem;">Detection Risk: <span id="scavenge-risk-display">0%</span></div>
+        <div style="font-size: 1.5rem; color: var(--color-danger-light); margin-bottom: 0.5rem;">Detection Risk: <span id="scavenge-risk-display">15%</span></div>
         <div style="display: flex; justify-content: center; gap: 1rem; color: var(--color-gold);">
           <span>🥩 <span id="scavenge-stash-food">0</span></span>
           <span>🥤 <span id="scavenge-stash-cola">0</span></span>
@@ -392,7 +445,7 @@
       <p style="margin-bottom: 1rem; color: var(--color-text-secondary);">Decipher the Marine broadcast frequency to charge your Log Pose.</p>
 
       <div style="background: var(--color-bg-deep); padding: 1.5rem; border-radius: var(--radius-md); text-align: center; margin-bottom: 1rem; font-family: var(--font-ui); font-size: 1.5rem; letter-spacing: 0.1em; color: var(--color-gold);">
-        <span id="denden-sequence">2, 4, ?, 16, 32</span>
+        <span id="denden-sequence">?, ?, ?, ?, ?, ?</span>
       </div>
 
       <div style="display: flex; gap: 0.5rem;">

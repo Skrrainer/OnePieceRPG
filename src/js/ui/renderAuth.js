@@ -3,7 +3,7 @@
 //  Handles login, registration, passcode hashing, and auth UI events.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { SEAS, COMBAT_STYLES, STARTING_GOLD, DEVIL_FRUITS } from '../config/gameData.js';
+import { SEAS, CLASSES, STARTING_GOLD, DEVIL_FRUITS } from '../config/gameData.js';
 import { pickSpawnIsland, getSeaForIsland } from '../../config/islands.js';
 import { setCrew } from '../engine/crewState.js';
 import { assignSea } from '../engine/rng.js';
@@ -71,47 +71,36 @@ export function initAuthForms() {
 
         const nameInput  = registerForm.querySelector('#pirate-name');
         const passInput  = registerForm.querySelector('#pirate-pass');
-        const styleInput = registerForm.querySelector('input[name="combatStyle"]:checked');
+
+        // Looks for the new 'role' radio buttons, but falls back to 'combatStyle' just in case the HTML isn't updated yet.
+        const roleInput = registerForm.querySelector('input[name="role"]:checked') || registerForm.querySelector('input[name="combatStyle"]:checked');
 
         const name = nameInput?.value.trim();
         const rawPasscode = passInput?.value.trim();
 
         if (!name || name.length < 1) return _showError(errorBox, 'A pirate without a name is just a ghost. Enter yours.');
         if (!rawPasscode || rawPasscode.length < 3) return _showError(errorBox, 'Enter a secure passcode (at least 3 characters).');
-        if (!styleInput) return _showError(errorBox, 'Choose your Combat Style before embarking.');
+        if (!roleInput) return _showError(errorBox, 'Choose your Ship Role before embarking.');
 
-        const styleKey = styleInput.value;
-        const style    = COMBAT_STYLES[styleKey];
-        if (!style) return _showError(errorBox, 'Unknown combat style.');
+        const roleKey = roleInput.value;
+        const roleDef = CLASSES[roleKey];
+        if (!roleDef) return _showError(errorBox, 'Unknown ship role.');
 
         // Pick a spawn island first, then derive the sea from its location
         const spawnIsland = pickSpawnIsland();
         const spawnSeaId  = getSeaForIsland(spawnIsland);
         const sea         = (spawnSeaId ? SEAS.find(s => s.id === spawnSeaId) : null) ?? assignSea(SEAS);
-        const baseAttack   = 5 + style.statBonuses.attack   + (sea.passiveModifiers?.attack   ?? 0);
-        const baseDefense  = 5 + style.statBonuses.defense  + (sea.passiveModifiers?.defense  ?? 0);
-        const baseAccuracy = 5 + style.statBonuses.accuracy + (sea.passiveModifiers?.accuracy ?? 0);
-        const baseHP       = style.baseHP;
-        const baseShipHP   = style.baseShipHP;
 
         // Securely hash the passcode before it enters state
         const hashedPasscode = await hashPasscode(rawPasscode);
 
+        // Player state now handles auto-calculating D&D attributes and HP based on the role
         initState({
             name,
-            combatStyle:    styleKey,
+            role:           roleKey,
             seaOfOrigin:    sea,
             day:            1,
-            hp:             baseHP,
-            maxHp:          baseHP,
             gold:           STARTING_GOLD,
-            bounty:         0,
-            shipHp:         baseShipHP,
-            shipHpMax:      baseShipHP,
-            attack:         baseAttack,
-            defense:        baseDefense,
-            accuracy:       baseAccuracy,
-            startingItem:   style.startingItem,
             passcode:       hashedPasscode,
             currentIsland:  spawnIsland.id,
         });
@@ -120,7 +109,7 @@ export function initAuthForms() {
         registerBtn.disabled = true;
         registerBtn.textContent = '⚓ Setting sail...';
 
-        // Get cleanly mapped object for Supabase to avoid inserting non-existent columns
+        // Get cleanly mapped object for Supabase
         const savePayload = toSaveObject();
 
         const { error, data } = await savePlayer(savePayload);
@@ -182,7 +171,7 @@ export function initAuthForms() {
         initState({
             ...data,
             seaOfOrigin:  seaObj,
-            combatStyle:  data.combat_style,
+            role:         data.role,
             maxHp:        data.max_hp,
             shipHp:       data.ship_hp,
             shipHpMax:    data.ship_hp_max,

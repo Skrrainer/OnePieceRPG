@@ -1,10 +1,22 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  GRAND LINE DISPATCH — ui/renderEvents.js
-//  Voyage event log rendering and interactive choices system.
+//  Voyage event log rendering, d20 stat checks, and outcomes.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { getState, applyEventOutcome, toSaveObject, isDead, addInventoryItem, modifyFood, modifyCola, chargeLogPose } from '../engine/playerState.js';
+import {
+  getState,
+  getModifier,
+  applyEventOutcome,
+  toSaveObject,
+  isDead,
+  addInventoryItem,
+  modifyFood,
+  modifyCola,
+  chargeLogPose,
+  gainExp
+} from '../engine/playerState.js';
 import { savePlayer } from '../supabase/client.js';
+import { rollStatCheck } from '../engine/rng.js';
 
 /**
  * Renders a list of resolved voyage events into the #event-log container.
@@ -126,16 +138,20 @@ function _buildEventEntry(evt, day, fruitDrop) {
     const btn = document.createElement('button');
     btn.className = 'btn btn--ghost btn--sm';
 
-    let winChance = 100;
+    let isDiceRoll = false;
 
-    // Calculate win percentage based on stats OR a fixed chance (for fake-outs)
-    if (choice.stat && choice.difficulty) {
-      const playerStat = getState()[choice.stat] || 5;
-      winChance = Math.min(100, Math.max(5, Math.round((playerStat / choice.difficulty) * 100)));
-      btn.textContent = `${choice.label} (${winChance}%)`;
+    // Detect if this choice requires a d20 stat check
+    // Assuming the database now passes { stat: 'dex', dc: 15 } instead of { stat: 'accuracy', difficulty: 10 }
+    const targetStat = choice.stat ? choice.stat.toLowerCase() : null;
+    const targetDc = choice.dc || choice.difficulty; // Support legacy 'difficulty' tag temporarily
+
+    if (targetStat && targetDc) {
+      isDiceRoll = true;
+      const mod = getModifier(targetStat);
+      const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
+      btn.textContent = `${choice.label} [${targetStat.toUpperCase()} ${modStr} vs DC ${targetDc}]`;
     } else if (choice.chance !== undefined) {
-      winChance = choice.chance;
-      btn.textContent = `${choice.label} (${winChance}%)`;
+      btn.textContent = `${choice.label} (${choice.chance}%)`;
     } else {
       btn.textContent = choice.label;
     }
@@ -144,16 +160,52 @@ function _buildEventEntry(evt, day, fruitDrop) {
     btn.addEventListener('click', async () => {
       actionsContainer.innerHTML = ''; // Lock choice
 
-      const roll = Math.random() * 100;
-      const isSuccess = roll <= winChance;
+      let isSuccess = true;
+      let rollOutput = null;
+
+      // Resolve the D&D dice roll
+      if (isDiceRoll) {
+        const mod = getModifier(targetStat);
+        // Passing 0 for proficiency temporarily until we map out specific skill proficiencies
+        const rollResult = rollStatCheck(mod, 0, targetDc);
+        isSuccess = rollResult.success;
+
+        rollOutput = document.createElement('p');
+        rollOutput.className = 'event-entry__desc roll-output';
+        rollOutput.style.fontStyle = 'italic';
+        rollOutput.style.margin = '8px 0';
+
+        if (rollResult.isCritical && rollResult.roll === 20) {
+          rollOutput.textContent = `🎲 Natural 20! Critical Success! (Total: ${rollResult.total} vs DC ${targetDc})`;
+          rollOutput.style.color = '#d4af37'; // Gold
+        } else if (rollResult.isCritical && rollResult.roll === 1) {
+          rollOutput.textContent = `🎲 Natural 1! Critical Failure! (Total: ${rollResult.total} vs DC ${targetDc})`;
+          rollOutput.style.color = '#ff6b6b'; // Danger red
+        } else {
+          const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
+          rollOutput.textContent = `🎲 Rolled a ${rollResult.roll} ${modStr} = ${rollResult.total} vs DC ${targetDc}.`;
+          rollOutput.style.color = isSuccess ? '#4caf72' : '#ff6b6b';
+        }
+      } else if (choice.chance !== undefined) {
+        isSuccess = (Math.random() * 100) <= choice.chance;
+      }
+
       const outcome = isSuccess ? choice.success : choice.fail;
 
+      // Apply modifiers
       applyEventOutcome({ hp: outcome.hp || 0, gold: outcome.gold || 0 });
       if (outcome.food) modifyFood(outcome.food);
       if (outcome.cola) modifyCola(outcome.cola);
-      
+
       if (evt.is_exploration) {
-         chargeLogPose(1);
+        chargeLogPose(1);
+      }
+
+      // Grant EXP for successful rolls
+      let expGained = 0;
+      if (isSuccess && targetDc) {
+        expGained = targetDc * 5; // e.g. DC 15 gives 75 EXP
+        gainExp(expGained);
       }
 
       const currentState = getState();
@@ -175,7 +227,7 @@ function _buildEventEntry(evt, day, fruitDrop) {
             type: 'devil_fruit',
             name: fruitDrop.name,
             description: fruitDrop.ability,
-            statMod: fruitDrop.statMod,
+            attributeBuffs: fruitDrop.attributeBuffs,
             cssClass: fruitDrop.cssClass,
             glowColor: fruitDrop.glowColor,
             icon: fruitDrop.icon || '🍎'
@@ -186,24 +238,31 @@ function _buildEventEntry(evt, day, fruitDrop) {
           finalOutcomeText = "You check your bag... it was just a regular, terrible-tasting melon.";
           outcomesDiv.appendChild(_chip(`Just a normal fruit`, 'neutral'));
         }
-      } else if (outcome.gold || outcome.hp || outcome.food || outcome.cola || evt.is_exploration) {
+      } else {
+        if (expGained > 0) outcomesDiv.appendChild(_chip(`+${expGained} EXP`, 'positive'));
         if (evt.is_exploration) outcomesDiv.appendChild(_chip('+1 🧭 Charge', 'positive'));
         if (outcome.gold) outcomesDiv.appendChild(_chip(outcome.gold > 0 ? `+${outcome.gold} 💰` : `${outcome.gold} 💰`, outcome.gold > 0 ? 'positive' : 'negative'));
         if (outcome.hp)   outcomesDiv.appendChild(_chip(outcome.hp > 0 ? `+${outcome.hp} ❤️` : `${outcome.hp} ❤️`, outcome.hp > 0 ? 'positive' : 'negative'));
         if (outcome.food) outcomesDiv.appendChild(_chip(outcome.food > 0 ? `+${outcome.food} 🥩` : `${outcome.food} 🥩`, outcome.food > 0 ? 'positive' : 'negative'));
         if (outcome.cola) outcomesDiv.appendChild(_chip(outcome.cola > 0 ? `+${outcome.cola} 🥤` : `${outcome.cola} 🥤`, outcome.cola > 0 ? 'positive' : 'negative'));
-      } else {
-        outcomesDiv.appendChild(_chip('No casualties', 'neutral'));
+
+        // If literally nothing changed and no EXP was gained, show a neutral chip
+        if (!outcome.gold && !outcome.hp && !outcome.food && !outcome.cola && !evt.is_exploration && expGained === 0) {
+          outcomesDiv.appendChild(_chip('No casualties', 'neutral'));
+        }
       }
 
       resultText.textContent = finalOutcomeText;
+
+      // Append elements in reading order
+      if (rollOutput) actionsContainer.appendChild(rollOutput);
       actionsContainer.appendChild(resultText);
       actionsContainer.appendChild(outcomesDiv);
 
-      // Dynamically import renderProfile to break the circular dependency cycle!
+      // Dynamically import renderProfile to break the circular dependency cycle
       const { renderProfile } = await import('./renderCharacter.js');
       renderProfile(currentState);
-      
+
       const { renderHub } = await import('./renderHub.js');
       renderHub(currentState);
 

@@ -1,100 +1,102 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  GRAND LINE DISPATCH — gameData.js
-//  ALL static game constants live here. Tweak numbers freely.
+//  Static D&D ruleset, class data, and game constants.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── Combat Styles ─────────────────────────────────────────────────────────
-export const COMBAT_STYLES = {
-  BRAWLER: {
-    key: 'BRAWLER',
-    label: 'Brawler',
-    icon: '👊',
-    cssClass: 'badge--brawler',
-    statBonuses: { attack: 8, defense: 3, accuracy: 1 },
-    startingItem: 'Iron Knuckles',
-    description: 'Fearless in close combat. High attack, modest defense.',
-    baseHP: 120,
-    baseShipHP: 100,
+// ── Ship Roles (Classes) ──────────────────────────────────────────────────
+export const CLASSES = {
+  CAPTAIN: {
+    id: 'CAPTAIN',
+    label: 'Captain',
+    icon: '🏴‍☠️',
+    description: 'Leads from the front. High Charisma and Strength. Buffs crew morale.',
+    hitDie: 10,
+    baseAttributes: { str: 14, dex: 10, con: 12, int: 8, wis: 10, cha: 16 },
+    proficiencies: ['str', 'cha'],
+    startingEquipment: ['Cutlass', 'Captain\'s Coat'],
   },
-  SWORDSMAN: {
-    key: 'SWORDSMAN',
-    label: 'Swordsman',
-    icon: '⚔️',
-    cssClass: 'badge--swordsman',
-    statBonuses: { attack: 5, defense: 5, accuracy: 4 },
-    startingItem: 'Steel Cutlass',
-    description: 'Balanced offense and precision. Adapts to any encounter.',
-    baseHP: 100,
-    baseShipHP: 100,
+  NAVIGATOR: {
+    id: 'NAVIGATOR',
+    label: 'Navigator',
+    icon: '🧭',
+    description: 'Reads the weather and the waves. High Intelligence and Wisdom.',
+    hitDie: 8,
+    baseAttributes: { str: 8, dex: 12, con: 10, int: 16, wis: 14, cha: 10 },
+    proficiencies: ['int', 'wis'],
+    startingEquipment: ['Clima-Tact', 'Sextant'],
   },
   SNIPER: {
-    key: 'SNIPER',
+    id: 'SNIPER',
     label: 'Sniper',
     icon: '🎯',
-    cssClass: 'badge--sniper',
-    statBonuses: { attack: 3, defense: 2, accuracy: 10 },
-    startingItem: 'Long-Range Flintlock',
-    description: 'Strikes from the shadows. Unmatched accuracy, glass jaw.',
-    baseHP: 80,
-    baseShipHP: 100,
+    description: 'Unmatched ranged accuracy and trap detection. High Dexterity.',
+    hitDie: 8,
+    baseAttributes: { str: 8, dex: 16, con: 10, int: 12, wis: 14, cha: 10 },
+    proficiencies: ['dex', 'int'],
+    startingEquipment: ['Kabuto', 'Goggles'],
   },
+  SHIPWRIGHT: {
+    id: 'SHIPWRIGHT',
+    label: 'Shipwright',
+    icon: '🔨',
+    description: 'Masters of timber and iron. High Strength and Intelligence.',
+    hitDie: 10,
+    baseAttributes: { str: 16, dex: 10, con: 14, int: 14, wis: 8, cha: 8 },
+    proficiencies: ['str', 'int'],
+    startingEquipment: ['Heavy Hammer', 'Toolbelt'],
+  },
+  COOK: {
+    id: 'COOK',
+    label: 'Cook',
+    icon: '🍳',
+    description: 'The crew\'s lifeline. High Constitution and Dexterity.',
+    hitDie: 8,
+    baseAttributes: { str: 12, dex: 14, con: 16, int: 10, wis: 10, cha: 8 },
+    proficiencies: ['con', 'dex'],
+    startingEquipment: ['Chef\'s Knife', 'Spices'],
+  },
+  DOCTOR: {
+    id: 'DOCTOR',
+    label: 'Doctor',
+    icon: '⚕️',
+    description: 'Keeps the crew breathing. High Wisdom and Intelligence.',
+    hitDie: 8,
+    baseAttributes: { str: 8, dex: 10, con: 12, int: 14, wis: 16, cha: 10 },
+    proficiencies: ['wis', 'int'],
+    startingEquipment: ['Medical Kit', 'Scalpel'],
+  }
 };
 
-// ── Seas of Origin ─────────────────────────────────────────────────────────
-// RNG picks one at character creation — not chosen by the player.
-export const SEAS = [
-  {
-    id: 'east_blue',
-    label: 'East Blue',
-    icon: '🌊',
-    difficulty: 1,
-    passiveModifiers: { attack: 1, defense: 1, accuracy: 0, goldMultiplier: 1.0 },
-    lore: 'The weakest of the four seas, yet birthplace of legends.',
-  },
-  {
-    id: 'west_blue',
-    label: 'West Blue',
-    icon: '🌊',
-    difficulty: 1,
-    passiveModifiers: { attack: 0, defense: 2, accuracy: 1, goldMultiplier: 1.05 },
-    lore: 'A sea of scholars and swordsmen, riddled with hidden reefs.',
-  },
-  {
-    id: 'north_blue',
-    label: 'North Blue',
-    icon: '🧊',
-    difficulty: 2,
-    passiveModifiers: { attack: 2, defense: 0, accuracy: 1, goldMultiplier: 1.1 },
-    lore: 'Cold, treacherous waters breed the hardiest pirates.',
-  },
-  {
-    id: 'south_blue',
-    label: 'South Blue',
-    icon: '☀️',
-    difficulty: 2,
-    passiveModifiers: { attack: 1, defense: 1, accuracy: 2, goldMultiplier: 1.1 },
-    lore: 'Warm, deceptive currents hide the most cunning of pirates.',
-  },
-  {
-    id: 'grand_line',
-    label: 'Grand Line',
-    icon: '⭐',
-    difficulty: 3,
-    passiveModifiers: { attack: 3, defense: 2, accuracy: 2, goldMultiplier: 1.25 },
-    lore: 'Where the impossible becomes routine. Few survive adolescence.',
-  },
-  {
-    id: 'new_world',
-    label: 'New World',
-    icon: '🔥',
-    difficulty: 3,
-    passiveModifiers: { attack: 4, defense: 3, accuracy: 3, goldMultiplier: 1.5 },
-    lore: 'The second half of the Grand Line — only the elite dare tread here.',
-  },
+// ── Level Progression ─────────────────────────────────────────────────────
+export const LEVEL_THRESHOLDS = [
+  0,      // Level 1
+  300,    // Level 2
+  900,    // Level 3
+  2700,   // Level 4
+  6500,   // Level 5
+  14000,  // Level 6
+  23000,  // Level 7
+  34000,  // Level 8
+  48000,  // Level 9
+  64000   // Level 10
 ];
 
-// ── Devil Fruits ───────────────────────────────────────────────────────────
-// drop rates handled in rng.js; cssClass applied to <body> on consumption.
+// Returns the proficiency bonus based on standard D&D scaling
+export function getProficiencyBonus(level) {
+  return Math.ceil(1 + (level / 4));
+}
+
+// ── Seas of Origin ────────────────────────────────────────────────────────
+export const SEAS = [
+  { id: 'east_blue', label: 'East Blue', icon: '🌊', difficulty: 1, lore: 'The weakest of the four seas, yet birthplace of legends.' },
+  { id: 'west_blue', label: 'West Blue', icon: '🌊', difficulty: 1, lore: 'A sea of scholars and swordsmen.' },
+  { id: 'north_blue', label: 'North Blue', icon: '🧊', difficulty: 2, lore: 'Cold, treacherous waters breed the hardiest pirates.' },
+  { id: 'south_blue', label: 'South Blue', icon: '☀️', difficulty: 2, lore: 'Warm, deceptive currents hide cunning pirates.' },
+  { id: 'grand_line', label: 'Grand Line', icon: '⭐', difficulty: 3, lore: 'Where the impossible becomes routine.' },
+  { id: 'new_world', label: 'New World', icon: '🔥', difficulty: 4, lore: 'The second half of the Grand Line.' }
+];
+
+// ── Devil Fruits ──────────────────────────────────────────────────────────
 export const DEVIL_FRUITS = [
   {
     id: 'gomu_gomu',
@@ -102,8 +104,8 @@ export const DEVIL_FRUITS = [
     type: 'Paramecia',
     cssClass: 'df-paramecia',
     icon: '🍈',
-    ability: 'Your body becomes rubber. Bullets and blunt impacts deal reduced damage.',
-    statMod: { attack: 2, defense: 5, accuracy: 0 },
+    ability: 'Your body becomes rubber. Gain resistance to bludgeoning damage.',
+    attributeBuffs: { con: 2, dex: 1 },
     glowColor: '#ff6b6b',
   },
   {
@@ -112,8 +114,8 @@ export const DEVIL_FRUITS = [
     type: 'Logia',
     cssClass: 'df-logia',
     icon: '🔥',
-    ability: 'Control and become fire itself. Devastating ranged attacks.',
-    statMod: { attack: 8, defense: 2, accuracy: 2 },
+    ability: 'Become fire. Attacks deal extra fire damage (1d6).',
+    attributeBuffs: { cha: 2, dex: 1 },
     glowColor: '#ff8c00',
   },
   {
@@ -123,7 +125,7 @@ export const DEVIL_FRUITS = [
     cssClass: 'df-logia',
     icon: '❄️',
     ability: 'Become ice. Freeze enemies in their tracks and control the battlefield.',
-    statMod: { attack: 5, defense: 5, accuracy: 2 },
+    attributeBuffs: { int: 2, con: 1 },
     glowColor: '#a0d8ef',
   },
   {
@@ -133,7 +135,7 @@ export const DEVIL_FRUITS = [
     cssClass: 'df-paramecia',
     icon: '💥',
     ability: 'The Tremor-Tremor Fruit. Create quakes powerful enough to destroy islands.',
-    statMod: { attack: 10, defense: 0, accuracy: 0 },
+    attributeBuffs: { str: 3 },
     glowColor: '#9b7fd4',
   },
   {
@@ -143,7 +145,7 @@ export const DEVIL_FRUITS = [
     cssClass: 'df-paramecia',
     icon: '⭕',
     ability: 'Create a surgical operating room. Rearrange anything within range.',
-    statMod: { attack: 3, defense: 3, accuracy: 6 },
+    attributeBuffs: { int: 2, wis: 1 },
     glowColor: '#e0e0e0',
   },
   {
@@ -153,7 +155,7 @@ export const DEVIL_FRUITS = [
     cssClass: 'df-logia',
     icon: '🌑',
     ability: 'The Darkness Fruit. Absorb and nullify all Devil Fruit powers.',
-    statMod: { attack: 7, defense: -2, accuracy: 4 },
+    attributeBuffs: { con: 3 },
     glowColor: '#3d1f6e',
   },
   {
@@ -163,7 +165,7 @@ export const DEVIL_FRUITS = [
     cssClass: 'df-zoan',
     icon: '🦅',
     ability: 'Transform into a mythical Phoenix. Regenerate HP at the start of each day.',
-    statMod: { attack: 4, defense: 4, accuracy: 3, hpRegenPerDay: 10 },
+    attributeBuffs: { wis: 2, con: 1 },
     glowColor: '#4caf72',
   },
   {
@@ -173,7 +175,7 @@ export const DEVIL_FRUITS = [
     cssClass: 'df-paramecia',
     icon: '🌸',
     ability: 'Bloom body parts on any surface. Perform multiple simultaneous strikes.',
-    statMod: { attack: 3, defense: 2, accuracy: 7 },
+    attributeBuffs: { dex: 2, int: 1 },
     glowColor: '#ff9fc8',
   },
   {
@@ -183,7 +185,7 @@ export const DEVIL_FRUITS = [
     cssClass: 'df-logia',
     icon: '🏜️',
     ability: 'Become and control sand. Drain moisture from enemies.',
-    statMod: { attack: 6, defense: 3, accuracy: 2 },
+    attributeBuffs: { wis: 2, dex: 1 },
     glowColor: '#d4a96a',
   },
   {
@@ -193,7 +195,7 @@ export const DEVIL_FRUITS = [
     cssClass: 'df-zoan',
     icon: '🐯',
     ability: 'Hybrid beast-human transformation. Enormous physical power boost.',
-    statMod: { attack: 9, defense: 3, accuracy: -2 },
+    attributeBuffs: { str: 2, con: 1 },
     glowColor: '#f4a223',
   },
 ];

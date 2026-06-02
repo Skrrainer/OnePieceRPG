@@ -1,7 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  GRAND LINE DISPATCH — engine/crewState.js
 //  In-memory cache of the player's recruited crew, loaded from Supabase.
-//  Crew stats are defined in the crew_roster table — edit them there.
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** @type {Array} */
@@ -20,4 +19,14 @@ export function addToCrewCache(member) {
 /** Returns a shallow copy of the crew array. */
 export function getCrew() {
   return [..._crew];
+}
+
+/** Modifies a specific crew member's HP and clamps it to their maximum. */
+export function modifyCrewHp(crewId, delta) {
+  const member = _crew.find(c => c.id === crewId);
+  if (member) {
+    member.hp = Math.max(0, Math.min(member.max_hp || 100, member.hp + delta));
+    return member.hp;
+  }
+  return 0;
 }

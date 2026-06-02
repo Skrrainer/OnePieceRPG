@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  GRAND LINE DISPATCH — engine/rng.js
-//  Pure, stateless RNG utility functions. No side effects.
+//  Pure, stateless RNG utility functions. Handles d20 tabletop mechanics.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { DROP_RATES } from '../config/gameData.js';
@@ -13,6 +13,52 @@ import { DROP_RATES } from '../config/gameData.js';
  */
 export function roll(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/**
+ * Simulates rolling a specific number of dice with a specific number of sides.
+ * Example: rollDice(2, 6) rolls 2d6.
+ * @param {number} count - The number of dice to roll.
+ * @param {number} sides - The number of sides on the dice.
+ * @returns {number} The total result of the roll.
+ */
+export function rollDice(count, sides) {
+  let total = 0;
+  for (let i = 0; i < count; i++) {
+    total += roll(1, sides);
+  }
+  return total;
+}
+
+/**
+ * Simulates a standard 1d20 tabletop roll.
+ * @returns {number} A value from 1 to 20.
+ */
+export function rollD20() {
+  return roll(1, 20);
+}
+
+/**
+ * Executes a standard D&D ability check or saving throw.
+ * @param {number} modifier - The character's ability modifier (e.g., +3).
+ * @param {number} proficiencyBonus - The proficiency bonus (if proficient), otherwise 0.
+ * @param {number} dc - The Difficulty Class to beat.
+ * @returns {{ success: boolean, roll: number, total: number, isCritical: boolean }}
+ */
+export function rollStatCheck(modifier, proficiencyBonus, dc) {
+  const d20 = rollD20();
+  const total = d20 + modifier + proficiencyBonus;
+
+  // Natural 20 always succeeds, Natural 1 always fails
+  if (d20 === 20) return { success: true, roll: d20, total, isCritical: true };
+  if (d20 === 1) return { success: false, roll: d20, total, isCritical: true };
+
+  return {
+    success: total >= dc,
+    roll: d20,
+    total,
+    isCritical: false
+  };
 }
 
 /**
@@ -46,18 +92,13 @@ export function weightedPick(items, weights) {
 
 /**
  * Determines whether a Devil Fruit should drop this sail.
- * Returns true at a 2% rate only if the player has no existing fruit.
+ * Returns true at a set rate only if the player has no existing fruit.
  * @param {boolean} hasExistingFruit
- * @param {number} chanceMultiplier - Modifier to base 2% chance
+ * @param {number} chanceMultiplier - Modifier to base drop chance
  * @returns {boolean}
  */
 export function shouldDropDevilFruit(hasExistingFruit, chanceMultiplier = 1.0) {
   if (hasExistingFruit) return false;
-  
-  // Depending on how it's configured, DROP_RATES.DEVIL_FRUIT_CHANCE might be an integer (e.g. 1 for 1%, or 1 for 100%) or a float.
-  // Since the original hardcoded value was 0.02 and the comment said 2%, 
-  // if DEVIL_FRUIT_CHANCE is set to 1 by the user, it means 100% or 1.0. 
-  // However, if they meant 1%, they would use 0.01. Let's just use the value directly since Math.random() is between 0 and 1.
   return Math.random() < (DROP_RATES.DEVIL_FRUIT_CHANCE * chanceMultiplier);
 }
 
@@ -68,20 +109,6 @@ export function shouldDropDevilFruit(hasExistingFruit, chanceMultiplier = 1.0) {
  */
 export function assignSea(seas) {
   return pickFrom(seas);
-}
-
-/**
- * Rolls a stat check: adds a random variance to a base stat and compares
- * against a difficulty threshold. Used for event resolution.
- * @param {number} statValue  – the character's relevant stat (attack/defense/accuracy)
- * @param {number} threshold  – minimum combined value to succeed
- * @param {number} [variance=10] – dice range ± applied to the stat
- * @returns {{ success: boolean, roll: number }}
- */
-export function rollStatCheck(statValue, threshold, variance = 10) {
-  const dice = roll(1, variance);
-  const total = statValue + dice;
-  return { success: total >= threshold, total, dice };
 }
 
 /**
