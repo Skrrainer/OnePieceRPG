@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  GRAND LINE DISPATCH — ui/renderEvents.js
-//  Voyage event log rendering, d20 stat checks, and outcomes.
+//  Map modals, stat checks, and outcome applications.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import {
@@ -21,49 +21,31 @@ import { startNavalCombat } from '../engine/navalCombat.js';
 import { updateNavalUI } from './renderNaval.js';
 import { getCrew } from '../engine/crewState.js';
 
-/**
- * Renders a list of resolved voyage events into the #event-log container.
- * Each event is prepended (newest at top).
- *
- * @param {Array}       events    – array of event objects
- * @param {Object|null} fruitDrop – Devil Fruit object from gameData, or null
- * @param {number}      day       – current voyage day (for log timestamps)
- */
-export function renderEvents(events, fruitDrop = null, day = 1) {
-  const log = document.getElementById('event-log');
-  if (!log) return;
+export function promptMapEvent(evt, fruitDrop, day) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.id = 'map-event-overlay';
+    overlay.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9000; display:flex; align-items:center; justify-content:center; padding:1rem; backdrop-filter: blur(4px);';
 
-  // Remove the empty-state placeholder if present
-  const empty = log.querySelector('.event-log__empty');
-  if (empty) empty.remove();
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--color-bg-deep); border:2px solid var(--color-gold); border-radius:8px; padding:1.5rem; max-width:550px; width:100%; box-shadow:0 10px 40px rgba(0,0,0,0.9);';
 
-  // ── Regular events (prepended in reverse so first event reads on top) ───
-  const reversed = [...events].reverse();
-  for (const evt of reversed) {
-    const entry = _buildEventEntry(evt, day, fruitDrop);
-    log.prepend(entry);
-  }
+    const mapHeader = document.createElement('h3');
+    mapHeader.style.cssText = 'color: var(--color-gold); font-size: 1.2rem; text-transform: uppercase; letter-spacing: 0.1em; text-align: center; margin-bottom: 1rem; border-bottom: 1px dashed var(--color-border); padding-bottom: 0.5rem;';
+    mapHeader.textContent = '⚓ Event at Sea';
+    card.appendChild(mapHeader);
+
+    const entry = _buildEventEntry(evt, day, fruitDrop, (outcome) => {
+      overlay.remove();
+      resolve(outcome);
+    });
+
+    card.appendChild(entry);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  });
 }
 
-/**
- * Clears all entries from the event log and restores the empty placeholder.
- */
-export function clearLog() {
-  const log = document.getElementById('event-log');
-  if (!log) return;
-  log.innerHTML = `
-    <div class="event-log__empty">
-      <p>The sea is calm. Hit <strong>Set Sail</strong> from the Hub to begin.</p>
-    </div>
-  `;
-}
-
-/**
- * Displays a self-dismissing toast notification.
- * @param {string} message
- * @param {'success'|'danger'|'gold'|'info'} [type='info']
- * @param {number} [duration=3500] – ms before auto-dismiss
- */
 export function showToast(message, type = 'info', duration = 3500) {
   const container = document.getElementById('toast-container');
   if (!container) return;
@@ -76,25 +58,20 @@ export function showToast(message, type = 'info', duration = 3500) {
   setTimeout(() => {
     toast.classList.add('fade-out');
     toast.addEventListener('animationend', () => toast.remove(), { once: true });
-    // Fallback removal in case animationend doesn't fire
     setTimeout(() => toast.remove(), 500);
   }, duration);
 }
 
-// ── Private helpers ───────────────────────────────────────────────────────
-
-/**
- * Builds a single .event-entry DOM element with interactive choices.
- * @param {Object} evt
- * @param {number} day
- * @param {Object|null} fruitDrop
- * @returns {HTMLElement}
- */
-function _buildEventEntry(evt, day, fruitDrop) {
+function _buildEventEntry(evt, day, fruitDrop, onComplete = null) {
   const type = evt.type ?? 'story';
 
   const entry = document.createElement('div');
   entry.className = `event-entry event-entry--${type}`;
+  if (onComplete) {
+    entry.style.background = 'transparent';
+    entry.style.border = 'none';
+    entry.style.padding = '0';
+  }
 
   const header = document.createElement('div');
   header.className = 'event-entry__header';
@@ -116,12 +93,11 @@ function _buildEventEntry(evt, day, fruitDrop) {
 
   const actionsContainer = document.createElement('div');
   actionsContainer.className = 'event-entry__actions';
-  actionsContainer.style.marginTop = '10px';
+  actionsContainer.style.marginTop = '15px';
   actionsContainer.style.display = 'flex';
   actionsContainer.style.gap = '8px';
   actionsContainer.style.flexWrap = 'wrap';
 
-  // Fallback for legacy events without the JSON choices column
   const choices = Array.isArray(evt.choices) && evt.choices.length > 0
       ? evt.choices
       : [{
@@ -136,14 +112,11 @@ function _buildEventEntry(evt, day, fruitDrop) {
         }
       }];
 
-  // Generate a button for every choice
   choices.forEach(choice => {
     const btn = document.createElement('button');
     btn.className = 'btn btn--ghost btn--sm';
 
     let isDiceRoll = false;
-
-    // Detect if this choice requires a d20 stat check
     const targetStat = choice.stat ? choice.stat.toLowerCase() : null;
     const targetDc = choice.dc || choice.difficulty;
 
@@ -158,17 +131,14 @@ function _buildEventEntry(evt, day, fruitDrop) {
       btn.textContent = choice.label;
     }
 
-    // Handle the player's decision
     btn.addEventListener('click', async () => {
-      actionsContainer.innerHTML = ''; // Lock choice
+      actionsContainer.innerHTML = '';
 
       let isSuccess = true;
       let rollOutput = null;
 
-      // Resolve the D&D dice roll
       if (isDiceRoll) {
         const mod = getModifier(targetStat);
-        // Passing 0 for proficiency temporarily until we map out specific skill proficiencies
         const rollResult = rollStatCheck(mod, 0, targetDc);
         isSuccess = rollResult.success;
 
@@ -179,10 +149,10 @@ function _buildEventEntry(evt, day, fruitDrop) {
 
         if (rollResult.isCritical && rollResult.roll === 20) {
           rollOutput.textContent = `🎲 Natural 20! Critical Success! (Total: ${rollResult.total} vs DC ${targetDc})`;
-          rollOutput.style.color = '#d4af37'; // Gold
+          rollOutput.style.color = '#d4af37';
         } else if (rollResult.isCritical && rollResult.roll === 1) {
           rollOutput.textContent = `🎲 Natural 1! Critical Failure! (Total: ${rollResult.total} vs DC ${targetDc})`;
-          rollOutput.style.color = '#ff6b6b'; // Danger red
+          rollOutput.style.color = '#ff6b6b';
         } else {
           const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
           rollOutput.textContent = `🎲 Rolled a ${rollResult.roll} ${modStr} = ${rollResult.total} vs DC ${targetDc}.`;
@@ -194,13 +164,11 @@ function _buildEventEntry(evt, day, fruitDrop) {
 
       const outcome = isSuccess ? choice.success : choice.fail;
 
-      // ── NAVAL COMBAT HOOK ──
       let playerWonCombat = null;
       if (outcome.triggerNavalCombat) {
         document.getElementById('naval-overlay').hidden = false;
         const fleetEnergy = 3 + getCrew().length;
 
-        // Wrap combat in a Promise to wait for resolution before printing the log
         playerWonCombat = await new Promise(resolve => {
           startNavalCombat(fleetEnergy, updateNavalUI, (won) => {
             document.getElementById('naval-overlay').hidden = true;
@@ -218,24 +186,19 @@ function _buildEventEntry(evt, day, fruitDrop) {
         }
       }
 
-      // Apply modifiers
       applyEventOutcome({ hp: outcome.hp || 0, gold: outcome.gold || 0 });
       if (outcome.food) modifyFood(outcome.food);
       if (outcome.cola) modifyCola(outcome.cola);
 
-      if (evt.is_exploration) {
-        chargeLogPose(1);
-      }
+      if (evt.is_exploration) chargeLogPose(1);
 
-      // Grant EXP for successful rolls
       let expGained = 0;
       if (isSuccess && targetDc) {
-        expGained = targetDc * 5; // e.g. DC 15 gives 75 EXP
+        expGained = targetDc * 5;
         gainExp(expGained);
       }
 
       const currentState = getState();
-
       const resultText = document.createElement('p');
       resultText.className = 'event-entry__desc';
       resultText.style.fontWeight = 'bold';
@@ -245,27 +208,18 @@ function _buildEventEntry(evt, day, fruitDrop) {
 
       let finalOutcomeText = outcome.text || (isSuccess ? 'Success!' : 'Failed.');
 
-      // Append combat narrative if applicable
       if (outcome.triggerNavalCombat) {
         finalOutcomeText += playerWonCombat ? " The enemy vessel was destroyed." : " You barely escaped with your lives.";
       }
 
-      // Inject Devil Fruit to inventory if won
       if (outcome.item === 'devil_fruit' || (isSuccess && evt.is_devil_fruit_drop)) {
         if (fruitDrop) {
           addInventoryItem({
-            id: fruitDrop.id,
-            type: 'devil_fruit',
-            name: fruitDrop.name,
-            description: fruitDrop.ability,
-            attributeBuffs: fruitDrop.attributeBuffs,
-            cssClass: fruitDrop.cssClass,
-            glowColor: fruitDrop.glowColor,
-            icon: fruitDrop.icon || '🍎'
+            id: fruitDrop.id, type: 'devil_fruit', name: fruitDrop.name, description: fruitDrop.ability,
+            attributeBuffs: fruitDrop.attributeBuffs, cssClass: fruitDrop.cssClass, glowColor: fruitDrop.glowColor, icon: fruitDrop.icon || '🍎'
           });
           outcomesDiv.appendChild(_chip(`Obtained ${fruitDrop.name}!`, 'positive'));
         } else {
-          // Fake out fallback
           finalOutcomeText = "You check your bag... it was just a regular, terrible-tasting melon.";
           outcomesDiv.appendChild(_chip(`Just a normal fruit`, 'neutral'));
         }
@@ -277,7 +231,6 @@ function _buildEventEntry(evt, day, fruitDrop) {
         if (outcome.food) outcomesDiv.appendChild(_chip(outcome.food > 0 ? `+${outcome.food} 🥩` : `${outcome.food} 🥩`, outcome.food > 0 ? 'positive' : 'negative'));
         if (outcome.cola) outcomesDiv.appendChild(_chip(outcome.cola > 0 ? `+${outcome.cola} 🥤` : `${outcome.cola} 🥤`, outcome.cola > 0 ? 'positive' : 'negative'));
 
-        // Render Naval Combat rewards/penalties in the log
         if (outcome.triggerNavalCombat) {
           if (playerWonCombat) {
             outcomesDiv.appendChild(_chip('+100 💰', 'positive'));
@@ -287,7 +240,6 @@ function _buildEventEntry(evt, day, fruitDrop) {
           }
         }
 
-        // If literally nothing changed and no EXP was gained, show a neutral chip
         if (!outcome.gold && !outcome.hp && !outcome.food && !outcome.cola && !evt.is_exploration && expGained === 0 && !outcome.triggerNavalCombat) {
           outcomesDiv.appendChild(_chip('No casualties', 'neutral'));
         }
@@ -295,12 +247,10 @@ function _buildEventEntry(evt, day, fruitDrop) {
 
       resultText.textContent = finalOutcomeText;
 
-      // Append elements in reading order
       if (rollOutput) actionsContainer.appendChild(rollOutput);
       actionsContainer.appendChild(resultText);
       actionsContainer.appendChild(outcomesDiv);
 
-      // Dynamically import renderProfile to break the circular dependency cycle
       const { renderProfile } = await import('./renderCharacter.js');
       renderProfile(currentState);
 
@@ -311,11 +261,14 @@ function _buildEventEntry(evt, day, fruitDrop) {
 
       if (isDead()) {
         showToast('💀 You have fallen. Your legend ends here.', 'danger');
-        const sailBtn = document.getElementById('set-sail-btn');
-        if (sailBtn) {
-          sailBtn.disabled = true;
-          sailBtn.textContent = '💀 Voyage Ended';
-        }
+        if (onComplete) onComplete(null);
+      } else if (onComplete) {
+        const continueBtn = document.createElement('button');
+        continueBtn.className = 'btn btn--primary btn--full';
+        continueBtn.style.marginTop = '15px';
+        continueBtn.textContent = evt.is_exploration ? 'Return to Hub' : 'Continue Voyage 🌊';
+        continueBtn.onclick = () => onComplete(outcome);
+        actionsContainer.appendChild(continueBtn);
       }
     });
 
@@ -329,12 +282,6 @@ function _buildEventEntry(evt, day, fruitDrop) {
   return entry;
 }
 
-/**
- * Creates an outcome chip span.
- * @param {string} text
- * @param {'positive'|'negative'|'neutral'} type
- * @returns {HTMLElement}
- */
 function _chip(text, type) {
   const chip = document.createElement('span');
   chip.className   = `outcome-chip outcome-chip--${type}`;

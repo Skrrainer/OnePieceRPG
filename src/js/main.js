@@ -10,16 +10,12 @@ import { setCrew }                  from './engine/crewState.js';
 import { sailDay }                 from './engine/gameLoop.js';
 import { renderProfile, renderCrew } from './ui/renderCharacter.js';
 import { initAuthForms }           from './ui/renderAuth.js';
-import { clearLog, showToast }     from './ui/renderEvents.js';
+import { showToast }               from './ui/renderEvents.js';
 import { renderHub, bindHubActions } from './ui/renderHub.js';
 import { initInlineMap, renderInlineMapMarkers } from './ui/renderMap.js';
 import { initInventory }           from './ui/renderInventory.js';
 import { SEAS, DEVIL_FRUITS }      from './config/gameData.js';
-
-// Initialize the Island Nodes module to attach window.GLD_NODES
 import './ui/renderIslandNodes.js';
-
-// ── Screen Navigation ─────────────────────────────────────────────────────
 
 export function switchScreen(screenId) {
   const screens = document.querySelectorAll('.screen');
@@ -29,8 +25,6 @@ export function switchScreen(screenId) {
     s.classList.toggle('active', isTarget);
   });
 }
-
-// ── App Bootstrap ─────────────────────────────────────────────────────────
 
 async function bootstrap() {
   if ('serviceWorker' in navigator && import.meta.env.PROD) {
@@ -42,12 +36,26 @@ async function bootstrap() {
     }
   }
 
+  // ── FIX: Remove old Log Tab and gracefully fill the remaining space ──
+  const logTab = document.querySelector('.sidebar-tab[data-tab="log"]');
+  if (logTab) {
+    const parent = logTab.parentElement;
+    logTab.remove();
+    // Force remaining tabs to stretch and fill the space evenly
+    parent.style.display = 'flex';
+    Array.from(parent.children).forEach(child => {
+      child.style.flex = '1';
+      child.style.textAlign = 'center';
+    });
+  }
+  document.getElementById('panel-log')?.remove();
+  // ───────────────────────────────────────────────────────────────────────
+
   const dbReady = await checkDbReady();
 
   if (!dbReady) {
-    showToast('⚠️ DB tables missing — run supabase/schema.sql in your Supabase SQL Editor. Playing offline.', 'danger', 8000);
+    showToast('⚠️ DB tables missing. Playing offline.', 'danger', 8000);
   } else {
-    // Fetch and cache all islands before initializing player state
     const { data: islandsData } = await fetchAllIslands();
     loadIslands(islandsData || []);
   }
@@ -56,19 +64,15 @@ async function bootstrap() {
   let restoredPlayer = null;
 
   if (dbReady && savedId) {
-    const { data, error } = await loadPlayer(savedId);
-    if (data) {
-      restoredPlayer = data;
-    } else {
-      localStorage.removeItem('gld_player_id');
-    }
+    const { data } = await loadPlayer(savedId);
+    if (data) restoredPlayer = data;
+    else localStorage.removeItem('gld_player_id');
   }
 
   initAuthForms();
   bindHubActions();
   initInventory();
   _bindSailButton();
-  _bindClearLogButton();
   _bindModalClose();
   _bindLogoutButton();
   _bindSidebarTabs();
@@ -108,18 +112,16 @@ async function bootstrap() {
   }
 }
 
-// ── Event Bindings ────────────────────────────────────────────────────────
-
 function _bindSailButton() {
   const sailBtn = document.getElementById('set-sail-btn');
   if (!sailBtn) return;
 
   sailBtn.addEventListener('click', async () => {
-    sailBtn.disabled    = true;
+    sailBtn.disabled = true;
     const destinationId = sailBtn.dataset.destination;
     sailBtn.textContent = '🌊 Sailing...';
 
-    document.getElementById('event-log')?.scrollIntoView({ behavior: 'smooth' });
+    switchSidebarTab('map');
 
     try {
       await sailDay(destinationId);
@@ -127,19 +129,16 @@ function _bindSailButton() {
       console.error('[GLD] sailDay error:', err);
       showToast('⚠️ Something went wrong at sea.', 'danger');
     } finally {
-      sailBtn.disabled    = false;
+      sailBtn.disabled = false;
       sailBtn.textContent = '🧭 Select a Destination';
       delete sailBtn.dataset.destination;
       document.querySelectorAll('.island-btn').forEach(b => b.classList.remove('selected'));
       renderHub(getState());
       renderInlineMapMarkers();
-      switchSidebarTab('log');
+
+      switchSidebarTab('hub');
     }
   });
-}
-
-function _bindClearLogButton() {
-  document.getElementById('clear-log-btn')?.addEventListener('click', clearLog);
 }
 
 function _bindLogoutButton() {
@@ -155,7 +154,6 @@ function _bindLogoutButton() {
     document.body.classList.remove('df-active', 'df-paramecia', 'df-zoan', 'df-logia');
     document.documentElement.style.removeProperty('--df-glow-color');
     document.getElementById('devil-fruit-section').hidden = true;
-    clearLog();
     logoutBtn.hidden = true;
     switchScreen('screen-auth');
     showToast('Signed out successfully.', 'info');
@@ -179,7 +177,6 @@ export function switchSidebarTab(tabId) {
 
 function _bindSidebarTabs() {
   const sidebar = document.getElementById('game-sidebar');
-
   document.querySelectorAll('.sidebar-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       const targetTab  = tab.dataset.tab;
@@ -212,7 +209,6 @@ function _bindModalClose() {
   closeBtn?.addEventListener('click', () => {
     if (overlay) overlay.hidden = true;
   });
-
   overlay?.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.hidden = true;
   });
@@ -228,7 +224,6 @@ export function openModal({ title, body, footer = '' }) {
   if (titleEl)  titleEl.textContent  = title;
   if (bodyEl)   bodyEl.innerHTML     = body;
   if (footerEl) footerEl.innerHTML   = footer;
-
   overlay.hidden = false;
 }
 

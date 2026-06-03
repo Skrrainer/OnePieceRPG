@@ -5,6 +5,7 @@
 
 import { SEAS, CLASSES, LEVEL_THRESHOLDS } from '../config/gameData.js';
 import { getCrew } from '../engine/crewState.js';
+import { openModal } from '../main.js';
 
 // ── Profile Sidebar ───────────────────────────────────────────────────────
 
@@ -31,7 +32,6 @@ export function renderProfile(state) {
     const points = state.statPoints || 0;
     const showPlus = points > 0;
 
-    // Style the UL to act as a grid container
     statsList.style.display = 'grid';
     statsList.style.gridTemplateColumns = 'repeat(auto-fit, minmax(130px, 1fr))';
     statsList.style.gap = '10px';
@@ -60,7 +60,6 @@ export function renderProfile(state) {
     statDefs.forEach(s => {
       const val = state.attributes[s.key];
 
-      // Calculate the D&D Modifier dynamically for the UI
       let modBase = val;
       if (state.equipment?.accessory?.attributeBuffs?.[s.key]) {
         modBase += state.equipment.accessory.attributeBuffs[s.key];
@@ -93,7 +92,6 @@ export function renderProfile(state) {
 
     statsList.innerHTML = html;
 
-    // Bind [+] allocation buttons
     document.querySelectorAll('.stat-plus-btn').forEach(btn => {
       btn.onclick = async () => {
         const stat = btn.dataset.stat;
@@ -107,7 +105,6 @@ export function renderProfile(state) {
       };
     });
 
-    // Bind Reset button
     const resetBtn = document.getElementById('btn-reset-stats');
     if (resetBtn) {
       resetBtn.onclick = async () => {
@@ -123,7 +120,6 @@ export function renderProfile(state) {
     }
   }
 
-  // ── Stat Bars ──
   const hpBar = document.getElementById('stat-bar-hp');
   if (hpBar) {
     const pct = Math.max(0, Math.round((state.hp / state.maxHp) * 100));
@@ -137,11 +133,12 @@ export function renderProfile(state) {
     shipBar.style.width = `${pct}%`;
   }
 
+  const playerRoleKey = (state.role || state.combat_style || 'CAPTAIN').toUpperCase();
   const styleBadge = document.getElementById('profile-style-badge');
   if (styleBadge) {
-    const roleCfg = CLASSES[state.role];
-    styleBadge.textContent = roleCfg ? `${roleCfg.icon} ${roleCfg.label}` : state.role;
-    styleBadge.className   = `profile-panel__badge badge--${(state.role || 'captain').toLowerCase()}`;
+    const roleCfg = CLASSES[playerRoleKey];
+    styleBadge.textContent = roleCfg ? `${roleCfg.icon} ${roleCfg.label}` : playerRoleKey;
+    styleBadge.className   = `profile-panel__badge badge--${playerRoleKey.toLowerCase()}`;
   }
 
   // ── Inject Skills UI ──
@@ -159,27 +156,46 @@ export function renderProfile(state) {
     }
   }
 
-  const roleCfg = CLASSES[state.role] || CLASSES['CAPTAIN'];
+  const roleCfg = CLASSES[playerRoleKey] || CLASSES['CAPTAIN'];
   const profs = roleCfg.proficiencies.map(p => p.toUpperCase()).join(', ');
 
   let skillsHtml = `
     <h4 style="color: var(--color-gold); margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Class Skills & Proficiencies</h4>
     <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--color-border); border-radius: 6px; padding: 10px; margin-bottom: 1rem;">
-      <ul style="list-style: none; padding: 0; font-size: 0.85rem; color: var(--color-text-secondary); margin: 0;">
+      <ul style="list-style: none; padding: 0; font-size: 0.85rem; color: var(--color-text-secondary); margin: 0 0 10px 0;">
         <li style="margin-bottom: 6px;"><strong>Saves:</strong> ${profs}</li>
   `;
 
-  if (state.skills && state.skills.length > 0) {
-    state.skills.forEach(skill => {
-      skillsHtml += `<li style="margin-bottom: 4px; color: #fff;">✨ ${skill}</li>`;
+  // Render Unlocked Class Skills
+  const unlockedSkills = state.unlockedSkills || [];
+  let hasDisplayedSkills = false;
+  if (unlockedSkills.length > 0) {
+    unlockedSkills.forEach(sId => {
+      const skillDef = roleCfg.skillTree.find(s => s.id === sId);
+      if (skillDef) {
+        skillsHtml += `<li style="margin-bottom: 4px; color: #fff;">✨ ${skillDef.name}</li>`;
+        hasDisplayedSkills = true;
+      }
     });
-  } else {
+  }
+
+  // Render Devil Fruit Skills (Pre-unlocked)
+  if (state.hasFruit && state.devilFruit && state.devilFruit.skills) {
+    state.devilFruit.skills.forEach(skill => {
+      skillsHtml += `<li style="margin-bottom: 4px; color: ${state.devilFruit.glowColor || 'var(--color-danger-light)'};">🍇 ${skill.name} (Fruit Power)</li>`;
+      hasDisplayedSkills = true;
+    });
+  }
+
+  if (!hasDisplayedSkills) {
     skillsHtml += `<li><em>No active skills unlocked yet.</em></li>`;
   }
-  skillsHtml += `</ul></div>`;
+
+  skillsHtml += `</ul>`;
+  skillsHtml += `<button class="btn btn--ghost btn--full btn--sm" onclick="window.GLD_NODES.openSkillTree('player')">View Skill Tree</button>`;
+  skillsHtml += `</div>`;
   skillsContainer.innerHTML = skillsHtml;
 
-  // ── Devil Fruit Section ──
   const dfSection = document.getElementById('devil-fruit-section');
   if (dfSection) {
     if (state.hasFruit && state.devilFruit) {
@@ -209,13 +225,19 @@ export function renderCrew() {
   const members = getCrew();
   if (crewCount) crewCount.textContent = members.length;
 
+  crewList.style.display = 'grid';
+  crewList.style.gridTemplateColumns = 'repeat(auto-fit, minmax(250px, 1fr))';
+  crewList.style.gap = '1rem';
+  crewList.style.padding = '0';
+
   if (members.length === 0) {
+    crewList.style.display = 'block';
     crewList.innerHTML = '<li class="crew-list__empty" style="text-align: center; padding: 2rem 0; color: var(--color-text-muted);">No crew recruited yet.</li>';
     return;
   }
 
   crewList.innerHTML = members.map(m => {
-    const roleKey = m.role || m.combat_style || 'CAPTAIN';
+    const roleKey = (m.role || m.combat_style || 'CAPTAIN').toUpperCase();
     const roleCfg = CLASSES[roleKey] || CLASSES['CAPTAIN'];
     const safeAttributes = m.attributes?.str ? m.attributes : roleCfg.baseAttributes;
 
@@ -224,16 +246,26 @@ export function renderCrew() {
     const properMaxHp = Math.max(1, (roleCfg.hitDie + conMod)) * mLevel;
     const displayHp = Math.min(m.hp || properMaxHp, properMaxHp);
 
+    const exp = m.exp || 0;
+    const nextExp = LEVEL_THRESHOLDS[mLevel] || 'MAX';
+
+    const weapon = m.equipment?.weapon?.name || 'Unarmed';
+    const armor = m.equipment?.armor?.name || 'Basic Clothes';
+    const acc = m.equipment?.accessory?.name || 'None';
+
     return `
-      <li class="crew-list__member" style="background: rgba(0,0,0,0.2); border: 1px solid var(--color-border); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+      <li class="crew-list__member" style="background: rgba(0,0,0,0.2); border: 1px solid var(--color-border); border-radius: 8px; padding: 12px; list-style: none; display: flex; flex-direction: column;">
         <div class="crew-member__identity" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 8px;">
           <span class="crew-member__icon" style="font-size: 1.5rem;">${roleCfg.icon}</span>
           <div class="crew-member__info">
-            <span class="crew-member__name" style="font-weight: bold; font-size: 1.1rem; color: var(--color-gold);">${m.name} <small style="color: var(--color-text-muted); font-size: 0.8rem;">(Lvl ${mLevel})</small></span>
-            <span class="crew-member__style" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">${roleCfg.label}</span>
+            <span class="crew-member__name" style="font-weight: bold; font-size: 1.1rem; color: var(--color-gold);">${m.name}</span>
+            <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between;">
+                <span>${roleCfg.label} — Lvl ${mLevel}</span>
+                <span style="color: var(--color-text-muted);">${exp} / ${nextExp} XP</span>
+            </div>
           </div>
-          <span class="crew-member__day" style="font-size: 0.75rem; color: var(--color-text-muted);">Joined Day ${m.joined_day || 1}</span>
         </div>
+        
         <div class="crew-member__stats dnd-stats-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; font-size: 0.8rem; color: var(--color-text-muted); text-align: center; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px;">
           <span title="Strength">STR <strong style="color: #fff;">${safeAttributes.str}</strong></span>
           <span title="Dexterity">DEX <strong style="color: #fff;">${safeAttributes.dex}</strong></span>
@@ -242,14 +274,109 @@ export function renderCrew() {
           <span title="Wisdom">WIS <strong style="color: #fff;">${safeAttributes.wis}</strong></span>
           <span title="Charisma">CHA <strong style="color: #fff;">${safeAttributes.cha}</strong></span>
         </div>
-        <div class="crew-member__sub-stats" style="margin-top: 8px; font-size: 0.85rem; display: flex; justify-content: space-between;">
+
+        <div style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 8px; padding: 4px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between;"><span>🗡️ WPN:</span> <strong style="color: #fff;">${weapon}</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>🧥 AMR:</span> <strong style="color: #fff;">${armor}</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>💍 ACC:</span> <strong style="color: #fff;">${acc}</strong></div>
+        </div>
+
+        <div class="crew-member__sub-stats" style="margin-top: 8px; margin-bottom: 12px; font-size: 0.85rem; display: flex; justify-content: space-between;">
           <span title="Hit Points">❤️ <strong style="color: ${displayHp < properMaxHp * 0.3 ? '#ff6b6b' : '#fff'};">${displayHp} / ${properMaxHp}</strong></span>
           <span title="Bounty" class="crew-member__bounty" style="color: var(--color-gold);">💰 ${(m.bounty ?? 0).toLocaleString()}</span>
         </div>
+        
+        <button class="btn btn--ghost btn--sm" style="margin-top: auto;" onclick="window.GLD_NODES.openSkillTree('crew', '${m.id}')">View Skill Tree</button>
       </li>
     `;
   }).join('');
 }
+
+// ── Skill Tree Modal ──
+export async function renderSkillTreeModal(type, targetId = null) {
+  const { getState } = await import('../engine/playerState.js');
+  let charData, roleKey, level, unlocked;
+
+  if (type === 'player') {
+    const state = getState();
+    charData = state;
+    roleKey = (state.role || state.combat_style || 'CAPTAIN').toUpperCase();
+    level = state.level || 1;
+    unlocked = state.unlockedSkills || [];
+  } else {
+    const crew = getCrew();
+    charData = crew.find(c => c.id === targetId);
+    roleKey = (charData.role || charData.combat_style || 'CAPTAIN').toUpperCase();
+    level = charData.level || 1;
+    unlocked = charData.unlockedSkills || [];
+  }
+
+  const roleCfg = CLASSES[roleKey] || CLASSES['CAPTAIN'];
+  const skillPoints = Math.floor(level / 2) - unlocked.length;
+
+  let bodyHtml = `<p style="color:var(--color-gold); margin-bottom:1rem; text-align:center;">Available Skill Points: <strong style="font-size:1.2rem;">${Math.max(0, skillPoints)}</strong><br/><small style="color:var(--color-text-muted);">(Earn 1 SP every 2 levels)</small></p>`;
+
+  bodyHtml += `<div style="display:flex; flex-direction:column; gap:10px;">`;
+
+  // Only display Class Skills in the unlock tree (Devil Fruit skills are unlocked implicitly)
+  if (roleCfg.skillTree && roleCfg.skillTree.length > 0) {
+    roleCfg.skillTree.forEach(skill => {
+      const isUnlocked = unlocked.includes(skill.id);
+      const canUnlock = !isUnlocked && skillPoints > 0 && level >= skill.levelReq;
+      const reqColor = level >= skill.levelReq ? 'var(--color-success)' : 'var(--color-danger)';
+
+      bodyHtml += `
+                <div style="background:rgba(0,0,0,0.3); border:1px solid ${isUnlocked ? 'var(--color-gold)' : 'var(--color-border)'}; padding:10px; border-radius:6px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong style="color:${isUnlocked ? 'var(--color-gold)' : '#fff'};">✨ ${skill.name}</strong>
+                        <span style="font-size:0.75rem; color:${reqColor}; font-weight:bold;">Req: Lvl ${skill.levelReq}</span>
+                    </div>
+                    <div style="font-size:0.85rem; color:var(--color-text-muted); margin:6px 0;">${skill.desc}</div>
+                    ${isUnlocked ? '<span class="badge badge--success" style="font-size:0.7rem; background:rgba(76,175,114,0.2); color:var(--color-success); padding:2px 6px; border-radius:4px;">Unlocked</span>' :
+          `<button class="btn btn--sm ${canUnlock ? 'btn--primary' : 'btn--ghost'}" 
+                               style="margin-top:4px;"
+                               ${!canUnlock ? 'disabled' : ''} 
+                               onclick="window.GLD_NODES.unlockSkill('${type}', '${targetId}', '${skill.id}')">
+                               Unlock
+                       </button>`}
+                </div>
+            `;
+    });
+  } else {
+    bodyHtml += `<p style="text-align:center; color:var(--color-text-muted);">No skills available for this class yet.</p>`;
+  }
+
+  bodyHtml += `</div>`;
+
+  openModal({
+    title: `${charData.name}'s Skill Tree (${roleCfg.label})`,
+    body: bodyHtml
+  });
+}
+
+window.GLD_NODES = window.GLD_NODES || {};
+Object.assign(window.GLD_NODES, {
+  openSkillTree: (type, targetId) => renderSkillTreeModal(type, targetId),
+  unlockSkill: async (type, targetId, skillId) => {
+    if (type === 'player') {
+      const state = await import('../engine/playerState.js').then(m => m.getState());
+      state.unlockedSkills = state.unlockedSkills || [];
+      if (!state.unlockedSkills.includes(skillId)) state.unlockedSkills.push(skillId);
+    } else {
+      const crew = getCrew();
+      const member = crew.find(c => c.id === targetId);
+      member.unlockedSkills = member.unlockedSkills || [];
+      if (!member.unlockedSkills.includes(skillId)) member.unlockedSkills.push(skillId);
+    }
+
+    const { toSaveObject, getState } = await import('../engine/playerState.js');
+    const { savePlayer } = await import('../supabase/client.js');
+    await savePlayer(toSaveObject());
+
+    renderProfile(getState());
+    renderSkillTreeModal(type, targetId);
+  }
+});
 
 function _setText(id, value) {
   const el = document.getElementById(id);

@@ -4,14 +4,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { getState, modifyFood, modifyCola, applyEventOutcome, toSaveObject, incrementDay, repairShip } from '../engine/playerState.js';
-import { getCrew, modifyCrewHp } from '../engine/crewState.js';
-import { startCombat, executeAllyAction, endPlayerTurn, selectEnemy } from '../engine/combat.js';
+import { getCrew, modifyCrewHp, gainCrewExp } from '../engine/crewState.js';
+import { startCombat, executeAllyAction, executeAllySkill, skipTurn, selectEnemy } from '../engine/combat.js';
 import { showToast } from './renderEvents.js';
 import { renderProfile, renderCrew, updateHubDay } from './renderCharacter.js';
 import { renderHub } from './renderHub.js';
 import { savePlayer, saveCrewHp } from '../supabase/client.js';
+import { CLASSES } from '../config/gameData.js';
 
-// ── Shared Overlay Logic ──────────────────────────────────────────────────
 export function openNodeOverlay(nodeId) {
     document.getElementById('node-overlay').hidden = false;
     document.querySelectorAll('.node-view').forEach(v => v.hidden = true);
@@ -45,16 +45,16 @@ async function _persistState() {
     }
 }
 
-// ── Node 1: Squad Combat (Random Encounters) ──────────────────────────────
 export function initCombatNode() {
     openNodeOverlay('combat');
-
     const encounterPool = ['EASY_PATROL', 'THUG_GANG', 'OFFICER_SQUAD'];
     const randomEncounter = encounterPool[Math.floor(Math.random() * encounterPool.length)];
 
     startCombat(randomEncounter, _updateCombatUI, async (playerWon) => {
         if (playerWon) {
             incrementDay();
+            const leveledUp = gainCrewExp(150);
+            if (leveledUp) showToast('A crew member Leveled Up!', 'gold', 4000);
             showToast('Victory! Combat took 1 Day of time.', 'success');
             applyEventOutcome({ gold: 80 });
             await closeNodeOverlay();
@@ -63,16 +63,14 @@ export function initCombatNode() {
             await closeNodeOverlay();
         }
     });
-
-    document.getElementById('combat-btn-end').onclick = () => endPlayerTurn();
 }
 
-// ── Custom Quest Combat Integration ───────────────────────────────────────
 export function startQuestCombat(encounterKey, onWinCallback) {
     openNodeOverlay('combat');
-
     startCombat(encounterKey, _updateCombatUI, async (playerWon) => {
         if (playerWon) {
+            const leveledUp = gainCrewExp(400);
+            if (leveledUp) showToast('A crew member Leveled Up!', 'gold', 4000);
             if (onWinCallback) await onWinCallback();
             await closeNodeOverlay();
         } else {
@@ -80,22 +78,55 @@ export function startQuestCombat(encounterKey, onWinCallback) {
             await closeNodeOverlay();
         }
     });
-
-    document.getElementById('combat-btn-end').onclick = () => endPlayerTurn();
 }
 
 function _updateCombatUI(combatState) {
-    document.getElementById('combat-fleet-energy').textContent = combatState.fleetEnergy;
+    const energyDisplay = document.getElementById('combat-fleet-energy');
+    if (energyDisplay) energyDisplay.parentElement.style.display = 'none';
 
+    // ── 1. Initiative Tracker ──
+    const headerContainer = document.getElementById('combat-enemies-container').parentElement.parentElement;
+    let trackerUI = document.getElementById('initiative-tracker');
+
+    if (!trackerUI) {
+        trackerUI = document.createElement('div');
+        trackerUI.id = 'initiative-tracker';
+        trackerUI.style.display = 'flex';
+        trackerUI.style.gap = '8px';
+        trackerUI.style.padding = '10px';
+        trackerUI.style.marginBottom = '15px';
+        trackerUI.style.background = 'rgba(0,0,0,0.3)';
+        trackerUI.style.borderRadius = '8px';
+        trackerUI.style.overflowX = 'auto';
+        headerContainer.insertBefore(trackerUI, headerContainer.children[1]);
+    }
+
+    trackerUI.innerHTML = combatState.initiativeQueue.map((uid, index) => {
+        const combatant = combatState.allies.find(a => a.uid === uid) || combatState.enemies.find(e => e.uid === uid);
+        if (!combatant || combatant.hp <= 0) return '';
+
+        const isTurn = combatState.activeCombatantUid === uid;
+        const color = combatant.isPlayer !== undefined ? 'var(--color-ocean-light)' : 'var(--color-danger)';
+        const border = isTurn ? `2px solid ${color}` : '1px solid var(--color-border)';
+        const opacity = isTurn ? '1' : '0.5';
+
+        return `<div style="padding:4px 8px; border-radius:4px; background:var(--color-bg-deep); border:${border}; opacity:${opacity}; font-size:0.8rem; white-space:nowrap;">
+            ${index + 1}. ${combatant.icon} ${combatant.name.substring(0,8)}
+        </div>`;
+    }).join('');
+
+    // ── 2. Render Enemies ──
     const enemiesContainer = document.getElementById('combat-enemies-container');
     enemiesContainer.innerHTML = combatState.enemies.map(enemy => {
         const intent = enemy.intents[enemy.currentIntentIndex];
         const targetAlly = combatState.allies.find(a => a.uid === enemy.targetUid);
         const targetName = targetAlly ? targetAlly.name : 'Unknown';
         const isSelected = combatState.selectedEnemyUid === enemy.uid;
+        const isActive = combatState.activeCombatantUid === enemy.uid;
 
         return `
-        <div style="flex: 1; min-width: 150px; background: ${isSelected ? 'var(--color-danger-dark)' : 'var(--color-bg-deep)'}; padding: 1rem; border-radius: var(--radius-md); text-align: center; border: 2px solid ${isSelected ? 'var(--color-danger)' : 'var(--color-border)'}; cursor: pointer;" onclick="window.GLD_NODES.selectEnemy('${enemy.uid}')">
+        <div style="flex: 1; min-width: 150px; background: ${isSelected ? 'var(--color-danger-dark)' : 'var(--color-bg-deep)'}; padding: 1rem; border-radius: var(--radius-md); text-align: center; border: 2px solid ${isSelected ? 'var(--color-danger)' : (isActive ? 'var(--color-gold)' : 'var(--color-border)')}; cursor: pointer;" onclick="window.GLD_NODES.selectEnemy('${enemy.uid}')">
+            ${isActive ? '<div style="color:var(--color-gold); font-size:0.7rem; font-weight:bold; margin-bottom:4px;">▶ ACTIVE TURN</div>' : ''}
             <div style="font-size: 2rem;">${enemy.icon}</div>
             <h4 style="color: var(--color-danger-light); margin: 0.5rem 0; font-size: 0.9rem;">${enemy.name}</h4>
             <div style="font-size: 0.8rem;">❤️ ${enemy.hp} / ${enemy.maxHp}</div>
@@ -106,26 +137,73 @@ function _updateCombatUI(combatState) {
         </div>`;
     }).join('');
 
+    // ── 3. Render Allies (Visual Cards Only, No Buttons) ──
     const alliesContainer = document.getElementById('combat-allies-container');
-    const canAct = combatState.fleetEnergy > 0;
+    alliesContainer.style.display = 'grid';
+    alliesContainer.style.gridTemplateColumns = 'repeat(auto-fit, minmax(140px, 1fr))';
+    alliesContainer.style.gap = '10px';
 
     alliesContainer.innerHTML = combatState.allies.map(ally => {
         const isDead = ally.hp <= 0;
+        const isTurn = combatState.activeCombatantUid === ally.uid;
+
         return `
-        <div style="flex: 1; min-width: 140px; background: var(--color-bg-deep); padding: 1rem; border-radius: var(--radius-md); text-align: center; opacity: ${isDead ? '0.5' : '1'};">
+        <div style="background: var(--color-bg-deep); padding: 1rem; border-radius: var(--radius-md); text-align: center; border: 2px solid ${isTurn ? 'var(--color-gold)' : 'var(--color-border)'}; opacity: ${isDead ? '0.3' : '1'};">
+            ${isTurn && !isDead ? '<div style="color:var(--color-gold); font-size:0.7rem; font-weight:bold; margin-bottom:4px;">▶ ACTIVE</div>' : '<div style="height:12px;"></div>'}
             <div style="font-size: 2rem;">${ally.icon}</div>
             <h4 style="color: var(--color-ocean-light); margin: 0.5rem 0; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ally.name}</h4>
             <div style="font-size: 0.8rem;">❤️ ${ally.hp} / ${ally.maxHp}</div>
             <div style="font-size: 0.8rem;">🛡️ AC: ${ally.ac + ally.block}</div>
-            <div style="display: flex; gap: 0.2rem; margin-top: 0.5rem;">
-                <button class="btn btn--danger btn--sm" style="flex:1; padding: 2px;" onclick="window.GLD_NODES.allyAction('${ally.uid}', 'attack')" ${!canAct || isDead ? 'disabled' : ''}>⚔️</button>
-                <button class="btn btn--primary btn--sm" style="flex:1; padding: 2px;" onclick="window.GLD_NODES.allyAction('${ally.uid}', 'defend')" ${!canAct || isDead ? 'disabled' : ''}>🛡️</button>
-            </div>
+            <div style="font-size: 0.7rem; color:var(--color-text-muted); margin-top:2px;">⚔️ ${ally.damageDice} (+${ally.attackBonus})</div>
         </div>`;
     }).join('');
+
+    // ── 4. Central Action Hub ──
+    let actionHub = document.getElementById('combat-action-hub');
+    if (!actionHub) {
+        actionHub = document.createElement('div');
+        actionHub.id = 'combat-action-hub';
+        alliesContainer.parentElement.appendChild(actionHub);
+    }
+
+    const activeUid = combatState.activeCombatantUid;
+    const activeAlly = combatState.allies.find(a => a.uid === activeUid);
+
+    if (activeAlly && activeAlly.hp > 0) {
+        const roleCfg = CLASSES[activeAlly.roleKey];
+
+        // 1. Build Class Skill Buttons
+        const classSkills = (activeAlly.unlockedSkills || []).map(sId => {
+            const skill = roleCfg.skillTree.find(s => s.id === sId);
+            if (!skill) return '';
+            return `<button class="btn btn--primary btn--sm" onclick="window.GLD_NODES.allySkill('${activeAlly.uid}', '${sId}')">✨ ${skill.name}</button>`;
+        });
+
+        // 2. Build Devil Fruit Skill Buttons
+        const dfSkills = (activeAlly.devilFruit?.skills || []).map(skill => {
+            const color = activeAlly.devilFruit.glowColor || 'var(--color-gold)';
+            return `<button class="btn btn--danger btn--sm" style="border-color: ${color};" onclick="window.GLD_NODES.allySkill('${activeAlly.uid}', '${skill.id}')">🍇 ${skill.name}</button>`;
+        });
+
+        const skillBtns = [...classSkills, ...dfSkills].join('');
+
+        actionHub.innerHTML = `
+            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(0,0,0,0.5); border: 2px solid var(--color-gold); border-radius: 8px; text-align: center;">
+                <h4 style="color: var(--color-gold); margin-bottom: 0.8rem;">▶ Command: ${activeAlly.name}</h4>
+                <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn btn--danger" onclick="window.GLD_NODES.allyAction('${activeAlly.uid}', 'attack')">⚔️ Base Attack</button>
+                    <button class="btn btn--primary" onclick="window.GLD_NODES.allyAction('${activeAlly.uid}', 'defend')">🛡️ Brace (Guard)</button>
+                    ${skillBtns}
+                    <button class="btn btn--ghost" onclick="window.GLD_NODES.skipTurn()">⏭️ Skip</button>
+                </div>
+            </div>
+        `;
+    } else {
+        actionHub.innerHTML = `<div style="text-align:center; padding:1.5rem; color:var(--color-text-muted); font-style:italic;">Opponent Turn in Progress...</div>`;
+    }
 }
 
-// ── Node 2: Push Your Luck Scavenging ─────────────────────────────────────
+// ── Other Nodes (Scavenge, Den Den, Camp) Remain Unchanged ──
 let scavengeState = { risk: 15, stash: { food: 0, cola: 0, gold: 0 } };
 
 export function initScavengeNode() {
@@ -164,7 +242,6 @@ function _updateScavengeUI() {
     document.getElementById('scavenge-stash-gold').textContent = scavengeState.stash.gold;
 }
 
-// ── Node 3: Den Den Mushi Interception ────────────────────────────────────
 let puzzleAnswer = 0;
 
 export function initDenDenNode() {
@@ -206,7 +283,6 @@ export function initDenDenNode() {
     };
 }
 
-// ── Node 4: Crew Camp & Maintenance ───────────────────────────────────────
 export function initCampNode() {
     openNodeOverlay('camp');
     _updateCampUI();
@@ -256,7 +332,8 @@ function _updateCampUI() {
     });
 }
 
-window.GLD_NODES = {
+window.GLD_NODES = window.GLD_NODES || {};
+Object.assign(window.GLD_NODES, {
     openCombat: () => initCombatNode(),
     startQuestCombat: (encounterKey, onWin) => startQuestCombat(encounterKey, onWin),
     openScavenge: () => initScavengeNode(),
@@ -264,5 +341,7 @@ window.GLD_NODES = {
     openCamp: () => initCampNode(),
     close: () => closeNodeOverlay(),
     selectEnemy: (uid) => selectEnemy(uid),
-    allyAction: (uid, action) => executeAllyAction(uid, action)
-};
+    allyAction: (uid, action) => executeAllyAction(uid, action),
+    allySkill: (uid, skillId) => executeAllySkill(uid, skillId),
+    skipTurn: () => skipTurn()
+});
