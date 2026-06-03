@@ -12,6 +12,7 @@ import {
     equipItem,
     unequipItem
 } from '../engine/playerState.js';
+import { getCrew, equipCrewMember } from '../engine/crewState.js';
 import { claimDevilFruit, savePlayer } from '../supabase/client.js';
 import { renderProfile } from './renderCharacter.js';
 import { showToast } from './renderEvents.js';
@@ -35,7 +36,7 @@ function renderInventoryGrid() {
     const grid = document.getElementById('inventory-grid');
     grid.innerHTML = '';
 
-    // ── 1. Render Equipped Slots ──
+    // ── 1. Render Captain's Equipped Slots ──
     const slots = ['weapon', 'armor', 'accessory'];
     slots.forEach(slotKey => {
         const slotEl = document.getElementById(`equip-slot-${slotKey}`);
@@ -45,7 +46,7 @@ function renderInventoryGrid() {
         if (equippedItem) {
             slotEl.innerHTML = `<span>${equippedItem.icon || '🛡️'}</span>`;
             slotEl.style.background = 'rgba(255, 255, 255, 0.1)';
-            slotEl.onclick = () => showItemDetails(equippedItem, null, true, slotKey);
+            slotEl.onclick = () => showItemDetails(equippedItem, null, true, slotKey, 'player');
         } else {
             slotEl.innerHTML = `<span style="opacity: 0.2; font-size: 1rem; position: absolute; text-transform: capitalize;">${slotKey}</span>`;
             slotEl.style.background = 'rgba(0,0,0,0.3)';
@@ -80,9 +81,10 @@ function renderInventoryGrid() {
     showItemDetails(null);
 }
 
-function showItemDetails(item, index, isEquipped = false, slotKey = null) {
+function showItemDetails(item, index, isEquipped = false, slotKey = null, equippedTo = null) {
     const details = document.getElementById('inventory-details');
     const state = getState();
+    const crew = getCrew();
 
     if (!item) {
         details.innerHTML = '<p class="text-muted" style="text-align: center; margin-top: 2rem;">Select an item to view details.</p>';
@@ -92,10 +94,21 @@ function showItemDetails(item, index, isEquipped = false, slotKey = null) {
     let actionsHtml = '';
 
     if (isEquipped) {
-        actionsHtml = `<button class="btn btn--ghost btn--full" id="btn-unequip-item">Unequip ${item.name}</button>`;
+        if (equippedTo === 'player') {
+            actionsHtml = `<button class="btn btn--ghost btn--full" id="btn-unequip-item">Unequip ${item.name} (Captain)</button>`;
+        }
     } else {
         if (['weapon', 'armor', 'accessory'].includes(item.type)) {
-            actionsHtml = `<button class="btn btn--primary btn--full" id="btn-equip-item">Equip to ${item.type}</button>`;
+            // Build a dropdown to select WHO to equip it to
+            actionsHtml = `
+                <div style="display:flex; gap: 8px; margin-bottom: 8px;">
+                    <select id="equip-target-select" class="input" style="flex:1;">
+                        <option value="player">Captain ${state.name}</option>
+                        ${crew.map(c => `<option value="${c.id}">${c.name} (Lvl ${c.level || 1})</option>`).join('')}
+                    </select>
+                    <button class="btn btn--primary" id="btn-equip-item">Equip</button>
+                </div>
+            `;
         } else if (item.type === 'devil_fruit') {
             if (state.hasFruit) {
                 actionsHtml = `<button class="btn btn--danger btn--full" disabled>Cannot Eat (Already possess powers)</button>`;
@@ -109,7 +122,6 @@ function showItemDetails(item, index, isEquipped = false, slotKey = null) {
         }
     }
 
-    // Render Stats if present
     let statsHtml = '';
     if (item.baseAc) statsHtml += `<span style="display:inline-block; margin-right: 10px; color: #a0d8ef;">🛡️ AC: ${item.baseAc}</span>`;
     if (item.damageDice) statsHtml += `<span style="display:inline-block; margin-right: 10px; color: #ff6b6b;">⚔️ DMG: ${item.damageDice}</span>`;
@@ -127,18 +139,24 @@ function showItemDetails(item, index, isEquipped = false, slotKey = null) {
         <div>${actionsHtml}</div>
     `;
 
-    // Bind Action Buttons
+    // ── Bind Action Buttons ──
     document.getElementById('btn-equip-item')?.addEventListener('click', async () => {
-        // Remove from bag first
+        const targetId = document.getElementById('equip-target-select').value;
+
         removeInventoryItem(index);
-        // Force slot assignment
         item.slot = item.type;
-        equipItem(item);
+
+        if (targetId === 'player') {
+            equipItem(item);
+            showToast(`Equipped ${item.name} to Captain`, 'info');
+        } else {
+            equipCrewMember(targetId, item);
+            showToast(`Equipped ${item.name} to Crewmate`, 'info');
+        }
 
         await savePlayer(toSaveObject());
         renderProfile(getState());
         renderInventoryGrid();
-        showToast(`Equipped ${item.name}`, 'info');
     });
 
     document.getElementById('btn-unequip-item')?.addEventListener('click', async () => {
